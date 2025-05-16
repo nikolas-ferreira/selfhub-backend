@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  created_at DateTime?  @default(now())
+  profiles   Profile[]
+  categories Category[]
+
+  @@map("restaurants")
+}
+
+enum ProfileRole {
+  ADMIN
+  MANAGER
+  WAITER
+}
+
+model Profile {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  lastname        String
+  email           String      @unique
+  password        String
+  restaurantId    String      @db.ObjectId
+  restaurant      Restaurant  @relation(fields: [restaurantId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime?
+  updatedByUserId String?     @db.ObjectId
+  role            ProfileRole @default(WAITER)
+
+  categoriesEdited Category[] @relation("CategoryLastEditor")
+
+  @@map("profiles")
+}
+
+model Category {
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  iconUrl        String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  restaurantId   String     @db.ObjectId
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id])
+
+  lastEditedById String     @db.ObjectId
+  lastEditedBy   Profile    @relation("CategoryLastEditor", fields: [lastEditedById], references: [id])
+}
