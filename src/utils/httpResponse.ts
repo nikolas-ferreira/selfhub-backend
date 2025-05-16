@@ -18,3 +18,6 @@ export const notFound = (message = "Not Found") =>
 
 export const internalError = (message = "Internal Server Error") =>
   errorResponse(500, message);
+
+export const badRequest = (message = "Bad Request") =>
+  errorResponse(400, message);

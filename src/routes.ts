@@ -4,12 +4,18 @@ import { CreateRestaurantController } from "./controllers/CreateRestaurantContro
 import { ProfileController } from "./controllers/ProfileController";
 import { CreateCategoryController } from "./controllers/CreateCategoryController";
 import { verifyToken } from "./utils/verifyToken";
+import { CreateProductController } from "./controllers/CreateProductController";
+import { GetProductsController } from "./controllers/GetProductsController";
+import { GetCategoriesController } from "./controllers/GetCategoriesController";
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
   const profileController = new ProfileController();
   const restaurantController = new CreateRestaurantController();
   const createCategoryController = new CreateCategoryController();
+  const createProductController = new CreateProductController();
+  const getProductsController = new GetProductsController();
+  const getCategoriesController = new GetCategoriesController();
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -36,4 +42,16 @@ export async function routes(fastify: FastifyInstance) {
       return createCategoryController.handle(request, reply);
     }
   );
+
+  // Product - Protected
+  fastify.post(
+    "/products",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return createProductController.handle(request, reply);
+    }
+  );
+
+  fastify.get("/products", getProductsController.handle);
+  fastify.get("/categories", getCategoriesController.handle);
 }
