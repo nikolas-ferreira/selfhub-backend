@@ -40,6 +40,7 @@ export class LoginUserService {
           name: user.name,
           email: user.email,
           role: user.role,
+          restaurantId: user.restaurantId
         },
       },
       "Login successful"
