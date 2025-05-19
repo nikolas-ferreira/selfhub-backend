@@ -36,14 +36,14 @@ export class RegisterUserService {
 
     return successResponse(
       {
-        id: user.id,
-        name: user.name,
-        lastname: user.lastname,
-        email: user.email,
-        role: user.role
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        },
       },
-      201,
-      "User registered successfully"
+      "User registered successfully" 
     );
   }
 }
