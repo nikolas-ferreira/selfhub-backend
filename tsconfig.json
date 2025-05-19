@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                           // Versão moderna do JavaScript
-    "module": "CommonJS",                         // Necessário para Node.js
-    "outDir": "dist",                             // Diretório de saída após build
-    "rootDir": "src",                             // Raiz dos arquivos TypeScript
-    "strict": true,                               // Ativa verificações estritas
-    "esModuleInterop": true,                      // Permite importações padrão de libs CommonJS
-    "forceConsistentCasingInFileNames": true,     // Evita erros com letras maiúsculas/minúsculas
-    "skipLibCheck": true,                         // Ignora checagem de tipos das libs externas
-    "resolveJsonModule": true,                    // Permite importações de arquivos .json
-    "typeRoots": ["./node_modules/@types", "./src/@types"], // Inclui suas definições personalizadas
-    "sourceMap": true                             // Gera arquivos .map para debug (opcional)
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types", "./src/@types"],
+    "sourceMap": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
