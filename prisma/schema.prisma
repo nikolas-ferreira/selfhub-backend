@@ -13,6 +13,7 @@ model Restaurant {
   created_at DateTime?  @default(now())
   profiles   Profile[]
   categories Category[]
+  orders     Order[]
 
   @@map("restaurants")
 }
@@ -40,10 +41,7 @@ model Profile {
 
   productsCreated   Product[]  @relation("ProductCreator")
   productsEdited    Product[]  @relation("ProductLastEditor")
-
-  @@map("profiles")
 }
-
 
 model Category {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
@@ -77,4 +75,50 @@ model Product {
 
   lastEditedById String     @db.ObjectId
   lastEditedBy   Profile    @relation("ProductLastEditor", fields: [lastEditedById], references: [id])
+
+  orderItems     OrderItem[]
+}
+
+enum OrderStatus {
+  CREATED
+  PREPARING
+  COMING
+  IN_ROUTE
+  DELIVERED
+  FINISHED
+  CANCELED
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  MONEY
+}
+
+model Order {
+  id                 String       @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber        Int
+  status             OrderStatus  @default(CREATED)
+  orderedAt          DateTime     @default(now())
+  preparedAt         DateTime?
+  deliveredAt        DateTime?
+  finishedAt         DateTime?
+  canceledAt         DateTime?
+  tableNumber        Int
+  waiterNumber       Int
+  totalValue         Float
+  paymentMethod      PaymentMethod
+  restaurantId       String       @db.ObjectId
+  restaurant         Restaurant   @relation(fields: [restaurantId], references: [id])
+  items              OrderItem[]
+}
+
+model OrderItem {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  productId String   @db.ObjectId
+  quantity  Int
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
 }

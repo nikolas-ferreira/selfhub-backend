@@ -9,7 +9,8 @@ import { GetProductsController } from "../modules/product/GetProductsController"
 import { GetCategoriesController } from "../modules/category/GetCategoriesController";
 import { EditCategoryController } from "../modules/category/EditCategoryController";
 import { EditProductController } from "../modules/product/EditProductController";
-
+import { CreateOrderController } from "../modules/order/CreateOrderController";
+import { GetOrdersController } from "../modules/order/GetOrdersController";
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -21,6 +22,8 @@ export async function routes(fastify: FastifyInstance) {
   const getCategoriesController = new GetCategoriesController();
   const editCategoryController = new EditCategoryController();
   const editProductController = new EditProductController();
+  const createOrderController = new CreateOrderController();
+  const getOrdersController = new GetOrdersController()
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -75,6 +78,19 @@ export async function routes(fastify: FastifyInstance) {
     }
   );
 
+  // Public create order route (no authentication required)
+  fastify.post("/orders", createOrderController.handle.bind(createOrderController));
+
+
+  fastify.get(
+    "/orders",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return getOrdersController.handle(request, reply)
+    }
+  )
+
+  // Get routes (products and categories)
   fastify.get("/products", getProductsController.handle);
   fastify.get("/categories", getCategoriesController.handle);
 }
