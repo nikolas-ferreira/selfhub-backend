@@ -7,6 +7,8 @@ import { verifyToken } from "./utils/verifyToken";
 import { CreateProductController } from "./controllers/CreateProductController";
 import { GetProductsController } from "./controllers/GetProductsController";
 import { GetCategoriesController } from "./controllers/GetCategoriesController";
+import { EditCategoryController } from "./controllers/EditCategoryController";
+import { EditProductController } from "./controllers/EditProductController";
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -16,6 +18,8 @@ export async function routes(fastify: FastifyInstance) {
   const createProductController = new CreateProductController();
   const getProductsController = new GetProductsController();
   const getCategoriesController = new GetCategoriesController();
+  const editCategoryController = new EditCategoryController();
+  const editProductController = new EditProductController();
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -49,6 +53,24 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return createProductController.handle(request, reply);
+    }
+  );
+
+  // Edit Category
+  fastify.put(
+    "/categories/:id",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return editCategoryController.handle(request, reply);
+    }
+  );
+
+  // Edit Product
+  fastify.put(
+    "/products/:id",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return editProductController.handle(request, reply);
     }
   );
 

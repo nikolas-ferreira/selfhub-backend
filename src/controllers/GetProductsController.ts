@@ -4,21 +4,35 @@ import { badRequest, internalError, successResponse } from "../utils/httpRespons
 
 interface ProductsQuery {
   Querystring: {
-    categoryId: string;
+    categoryId?: string;
+    restaurantId?: string;
   };
 }
 
 export class GetProductsController {
   async handle(request: FastifyRequest<ProductsQuery>, reply: FastifyReply) {
     try {
-      const { categoryId } = request.query;
+      const { categoryId, restaurantId } = request.query;
 
-      if (!categoryId) {
-        return reply.status(400).send(badRequest("categoryId is required"));
+      if (!categoryId && !restaurantId) {
+        return reply
+          .status(400)
+          .send(badRequest("Either categoryId or restaurantId is required"));
       }
 
+      const whereClause = categoryId
+        ? { categoryId }
+        : {
+            category: {
+              restaurantId,
+            },
+          };
+
       const products = await prismaClient.product.findMany({
-        where: { categoryId },
+        where: whereClause,
+        include: {
+          category: false,
+        },
       });
 
       return reply.send(successResponse(products));
@@ -28,4 +42,3 @@ export class GetProductsController {
     }
   }
 }
-
