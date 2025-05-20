@@ -90,7 +90,7 @@ export async function routes(fastify: FastifyInstance) {
   )
 
   fastify.patch(
-    '/orders/:id/status',
+    '/orders/:id',
     { preHandler: [verifyToken] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return editOrderStatusController.handle(request, reply)
