@@ -6,12 +6,15 @@ import { errorHandler } from './middlewares/errorHandler';
 
 const app = Fastify({ logger: true });
 
-app.setErrorHandler(errorHandler);
-
 const start = async () => {
   try {
-    await app.register(cors);
+    await app.register(cors, {
+      origin: ['https://preview--hub-orange-admin-panel.lovable.app'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    });
+
     await app.register(routes);
+    app.setErrorHandler(errorHandler);
 
     const port = Number(process.env.PORT) || 3333;
     await app.listen({ port, host: '0.0.0.0' });
