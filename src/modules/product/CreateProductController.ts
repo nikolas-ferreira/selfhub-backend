@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { CreateProductService } from "../services/CreateProductService";
-import { internalError } from "../utils/httpResponse";
+import { CreateProductService } from "./CreateProductService";
+import { internalError } from "../../shared/utils/httpResponse";
 
 interface LoggedUser {
   id: string;

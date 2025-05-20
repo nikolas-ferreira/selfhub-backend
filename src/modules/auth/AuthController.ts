@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { RegisterUserService } from "../services/RegisterUserService";
-import { LoginUserService } from "../services/LoginUserService";
+import { RegisterUserService } from "./RegisterUserService";
+import { LoginUserService } from "./LoginUserService";
 
 class AuthController {
   async register(request: FastifyRequest, reply: FastifyReply) {

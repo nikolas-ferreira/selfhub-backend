@@ -1,5 +1,5 @@
-import prismaClient from "../prisma";
-import { unauthorized } from "../utils/httpResponse";
+import prismaClient from "../../shared/prisma";
+import { unauthorized } from "../../shared/utils/httpResponse";
 
 interface CreateCategoryRequest {
   name: string;

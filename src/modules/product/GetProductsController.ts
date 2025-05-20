@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import prismaClient from "../prisma";
-import { badRequest, internalError, successResponse } from "../utils/httpResponse";
+import prismaClient from "../../shared/prisma";
+import { badRequest, internalError, successResponse } from "../../shared/utils/httpResponse";
 
 interface ProductsQuery {
   Querystring: {

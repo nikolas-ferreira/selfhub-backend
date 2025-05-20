@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { CreateRestautantService } from '../services/CreateRestaurantService'
+import { CreateRestautantService } from './CreateRestaurantService'
 
 class CreateRestaurantController {
     async handle(request: FastifyRequest, reply: FastifyReply) {

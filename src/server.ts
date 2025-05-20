@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { routes } from './routes';
-import { errorHandler } from './middlewares/errorHandler';
+import { routes } from './shared/routes';
+import { errorHandler } from './shared/middlewares/errorHandler';
 
 const app = Fastify({ logger: true });
 

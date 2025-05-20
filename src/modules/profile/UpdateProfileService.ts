@@ -1,6 +1,6 @@
-import prismaClient from "../prisma";
+import prismaClient from "../../shared/prisma";
 import bcrypt from "bcryptjs";
-import { successResponse, internalError, unauthorized } from "../utils/httpResponse";
+import { successResponse, internalError, unauthorized } from "../../shared/utils/httpResponse";
 
 interface UpdateProfileServiceProps {
   profileId: string;

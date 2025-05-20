@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { EditCategoryService } from "../services/EditCategoryService";
-import { internalError } from "../utils/httpResponse";
+import { CreateCategoryService } from "./CreateCategoryService";
+import { internalError } from "../../shared/utils/httpResponse";
 
 interface LoggedUser {
   id: string;
@@ -8,11 +8,10 @@ interface LoggedUser {
   restaurantId: string;
 }
 
-export class EditCategoryController {
+export class CreateCategoryController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string };
-      const { name, iconUrl } = request.body as { name?: string; iconUrl?: string };
+      const { name, iconUrl } = request.body as { name: string; iconUrl: string };
 
       if (!request.user) {
         return reply.status(401).send({
@@ -24,13 +23,13 @@ export class EditCategoryController {
 
       const loggedUser = request.user as LoggedUser;
 
-      const service = new EditCategoryService();
-      const result = await service.execute({ id, name, iconUrl, loggedUser });
+      const service = new CreateCategoryService();
+      const result = await service.execute({ name, iconUrl, loggedUser });
 
       return reply.status(result.statusCode).send(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      return reply.status(500).send(internalError("Failed to update category"));
+      return reply.status(500).send(internalError("Failed to create category"));
     }
   }
 }

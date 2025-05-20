@@ -1,6 +1,6 @@
-import prismaClient from "../prisma";
+import prismaClient from "../../shared/prisma";
 import bcrypt from "bcryptjs";
-import { successResponse } from "../utils/httpResponse";
+import { successResponse } from "../../shared/utils/httpResponse";
 
 interface RegisterUserProps {
   name: string;

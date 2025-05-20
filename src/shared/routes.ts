@@ -1,14 +1,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { AuthController } from "./controllers/AuthController";
-import { CreateRestaurantController } from "./controllers/CreateRestaurantController";
-import { ProfileController } from "./controllers/ProfileController";
-import { CreateCategoryController } from "./controllers/CreateCategoryController";
 import { verifyToken } from "./utils/verifyToken";
-import { CreateProductController } from "./controllers/CreateProductController";
-import { GetProductsController } from "./controllers/GetProductsController";
-import { GetCategoriesController } from "./controllers/GetCategoriesController";
-import { EditCategoryController } from "./controllers/EditCategoryController";
-import { EditProductController } from "./controllers/EditProductController";
+import { AuthController } from "../modules/auth/AuthController";
+import { ProfileController } from "../modules/profile/ProfileController";
+import { CreateRestaurantController } from "../modules/restaurant/CreateRestaurantController";
+import { CreateCategoryController } from "../modules/category/CreateCategoryController";
+import { CreateProductController } from "../modules/product/CreateProductController";
+import { GetProductsController } from "../modules/product/GetProductsController";
+import { GetCategoriesController } from "../modules/category/GetCategoriesController";
+import { EditCategoryController } from "../modules/category/EditCategoryController";
+import { EditProductController } from "../modules/product/EditProductController";
+
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();

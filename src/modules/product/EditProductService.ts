@@ -1,5 +1,5 @@
-import prismaClient from "../prisma";
-import { notFound, unauthorized } from "../utils/httpResponse";
+import prismaClient from "../../shared/prisma";
+import { notFound, unauthorized } from "../../shared/utils/httpResponse";
 
 interface EditProductRequest {
   id: string;

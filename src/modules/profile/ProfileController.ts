@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { UpdateProfileService } from "../services/UpdateProfileService";
-import { internalError } from "../utils/httpResponse";
+import { UpdateProfileService } from "./UpdateProfileService";
+import { internalError } from "../../shared/utils/httpResponse";
 
 interface UpdateProfileParams {
   id: string;
