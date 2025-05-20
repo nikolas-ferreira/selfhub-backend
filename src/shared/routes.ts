@@ -82,9 +82,7 @@ export async function routes(fastify: FastifyInstance) {
   fastify.post("/orders", createOrderController.handle.bind(createOrderController));
 
 
-  fastify.get(
-    "/orders",
-    { preHandler: [verifyToken] },
+  fastify.get("/orders",{ preHandler: [verifyToken] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getOrdersController.handle(request, reply)
     }
