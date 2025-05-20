@@ -11,6 +11,7 @@ import { EditCategoryController } from "../modules/category/EditCategoryControll
 import { EditProductController } from "../modules/product/EditProductController";
 import { CreateOrderController } from "../modules/order/CreateOrderController";
 import { GetOrdersController } from "../modules/order/GetOrdersController";
+import { EditOrderStatusController } from '../modules/order/EditOrderController'
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -24,6 +25,7 @@ export async function routes(fastify: FastifyInstance) {
   const editProductController = new EditProductController();
   const createOrderController = new CreateOrderController();
   const getOrdersController = new GetOrdersController()
+  const editOrderStatusController = new EditOrderStatusController()
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -81,10 +83,17 @@ export async function routes(fastify: FastifyInstance) {
   // Public create order route (no authentication required)
   fastify.post("/orders", createOrderController.handle.bind(createOrderController));
 
-
-  fastify.get("/orders",{ preHandler: [verifyToken] },
+  fastify.get("/orders", { preHandler: [verifyToken] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getOrdersController.handle(request, reply)
+    }
+  )
+
+  fastify.patch(
+    '/orders/:id/status',
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return editOrderStatusController.handle(request, reply)
     }
   )
 
