@@ -1,6 +1,24 @@
 import prismaClient from "../../shared/prisma";
 import { notFound, unauthorized } from "../../shared/utils/httpResponse";
 
+interface LoggedUser {
+  id: string;
+  role: "WAITER" | "MANAGER" | "ADMIN";
+  restaurantId: string;
+}
+
+interface CustomizationOptionInput {
+  name: string;
+  price: number;
+}
+
+interface CustomizationGroupInput {
+  name: string;
+  min: number;
+  max: number;
+  options: CustomizationOptionInput[];
+}
+
 interface EditProductRequest {
   id: string;
   name?: string;
@@ -8,11 +26,8 @@ interface EditProductRequest {
   imageUrl?: string;
   description?: string;
   categoryId?: string;
-  loggedUser: {
-    id: string;
-    role: "WAITER" | "MANAGER" | "ADMIN";
-    restaurantId: string;
-  };
+  customizationGroups?: CustomizationGroupInput[];
+  loggedUser: LoggedUser;
 }
 
 export class EditProductService {
@@ -23,6 +38,7 @@ export class EditProductService {
     imageUrl,
     description,
     categoryId,
+    customizationGroups,
     loggedUser,
   }: EditProductRequest) {
     if (loggedUser.role === "WAITER") {
@@ -50,7 +66,8 @@ export class EditProductService {
       }
     }
 
-    const updated = await prismaClient.product.update({
+    // Atualiza o produto básico
+    const updatedProduct = await prismaClient.product.update({
       where: { id },
       data: {
         name,
@@ -62,9 +79,51 @@ export class EditProductService {
       },
     });
 
+    // Atualiza grupos e opções de customização se enviados
+    if (customizationGroups) {
+      // Pega grupos atuais para deletar antes de recriar
+      const existingGroups = await prismaClient.customizationGroup.findMany({
+        where: { productId: id },
+        select: { id: true },
+      });
+      const existingGroupIds = existingGroups.map(g => g.id);
+
+      // Deleta todas as opções vinculadas aos grupos antigos
+      await prismaClient.customizationOption.deleteMany({
+        where: { customizationGroupId: { in: existingGroupIds } },
+      });
+
+      // Deleta os grupos antigos
+      await prismaClient.customizationGroup.deleteMany({
+        where: { productId: id },
+      });
+
+      // Cria novos grupos e opções
+      for (const group of customizationGroups) {
+        const createdGroup = await prismaClient.customizationGroup.create({
+          data: {
+            name: group.name,
+            productId: id,
+            min: group.min,
+            max: group.max,
+          },
+        });
+
+        for (const option of group.options) {
+          await prismaClient.customizationOption.create({
+            data: {
+              name: option.name,
+              price: option.price,
+              customizationGroupId: createdGroup.id,
+            },
+          });
+        }
+      }
+    }
+
     return {
       statusCode: 200,
-      response: updated,
+      response: updatedProduct,
       message: "Product updated successfully",
     };
   }

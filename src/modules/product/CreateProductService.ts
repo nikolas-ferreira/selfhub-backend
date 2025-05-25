@@ -1,5 +1,17 @@
-import prismaClient from "../../shared/prisma";
+import prisma from "../../shared/prisma";
 import { unauthorized, notFound } from "../../shared/utils/httpResponse";
+
+interface CustomizationOptionInput {
+  name: string;
+  price: number;
+}
+
+interface CustomizationGroupInput {
+  name: string;
+  min: number;
+  max: number;
+  options: CustomizationOptionInput[];
+}
 
 interface CreateProductRequest {
   name: string;
@@ -12,6 +24,7 @@ interface CreateProductRequest {
     role: "WAITER" | "MANAGER" | "ADMIN";
     restaurantId: string;
   };
+  customizationGroups?: CustomizationGroupInput[];
 }
 
 export class CreateProductService {
@@ -22,13 +35,13 @@ export class CreateProductService {
     description,
     categoryId,
     loggedUser,
+    customizationGroups,
   }: CreateProductRequest) {
     if (loggedUser.role === "WAITER") {
       return unauthorized("Only MANAGER or ADMIN can create products");
     }
 
-    // Verificar se a categoria existe e pertence ao restaurante do usuário
-    const category = await prismaClient.category.findFirst({
+    const category = await prisma.category.findFirst({
       where: {
         id: categoryId,
         restaurantId: loggedUser.restaurantId,
@@ -39,7 +52,7 @@ export class CreateProductService {
       return notFound("Category not found or doesn't belong to your restaurant");
     }
 
-    const product = await prismaClient.product.create({
+    const product = await prisma.product.create({
       data: {
         name,
         price,
@@ -48,6 +61,26 @@ export class CreateProductService {
         categoryId,
         createdById: loggedUser.id,
         lastEditedById: loggedUser.id,
+        customizationGroups: {
+          create: customizationGroups?.map(group => ({
+            name: group.name,
+            min: group.min,
+            max: group.max,
+            options: {
+              create: group.options.map(option => ({
+                name: option.name,
+                price: option.price,
+              })),
+            },
+          })) || [],
+        },
+      },
+      include: {
+        customizationGroups: {
+          include: {
+            options: true,
+          },
+        },
       },
     });
 

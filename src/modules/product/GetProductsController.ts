@@ -31,7 +31,11 @@ export class GetProductsController {
       const products = await prismaClient.product.findMany({
         where: whereClause,
         include: {
-          category: false,
+          customizationGroups: {
+            include: {
+              options: true,
+            },
+          },
         },
       });
 

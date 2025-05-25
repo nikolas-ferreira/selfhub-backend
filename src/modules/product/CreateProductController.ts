@@ -11,12 +11,28 @@ interface LoggedUser {
 export class CreateProductController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { name, price, imageUrl, description, categoryId } = request.body as {
+      const {
+        name,
+        price,
+        imageUrl,
+        description,
+        categoryId,
+        customizationGroups,
+      } = request.body as {
         name: string;
         price: number;
         imageUrl: string;
         description: string;
         categoryId: string;
+        customizationGroups?: {
+          name: string;
+          min: number;
+          max: number;
+          options: {
+            name: string;
+            price: number;
+          }[];
+        }[];
       };
 
       if (!request.user) {
@@ -37,6 +53,7 @@ export class CreateProductController {
         description,
         categoryId,
         loggedUser,
+        customizationGroups,
       });
 
       return reply.status(result.statusCode).send(result);

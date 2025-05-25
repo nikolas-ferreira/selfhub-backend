@@ -12,12 +12,26 @@ export class EditProductController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
-      const { name, price, imageUrl, description, categoryId } = request.body as {
+      const {
+        name,
+        price,
+        imageUrl,
+        description,
+        categoryId,
+        customizationGroups,
+      } = request.body as {
         name?: string;
         price?: number;
         imageUrl?: string;
         description?: string;
         categoryId?: string;
+        customizationGroups?: {
+          name: string;
+          options: {
+            name: string;
+            price: number;
+          }[];
+        }[];
       };
 
       if (!request.user) {
@@ -38,6 +52,7 @@ export class EditProductController {
         imageUrl,
         description,
         categoryId,
+        customizationGroups,
         loggedUser,
       });
 
