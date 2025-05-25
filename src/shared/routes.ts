@@ -12,7 +12,6 @@ import { EditProductController } from "../modules/product/EditProductController"
 import { CreateOrderController } from "../modules/order/CreateOrderController";
 import { GetOrdersController } from "../modules/order/GetOrdersController";
 import { EditOrderStatusController } from '../modules/order/EditOrderController'
-import { AiController } from "../modules/ai/AiController";
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -27,7 +26,6 @@ export async function routes(fastify: FastifyInstance) {
   const createOrderController = new CreateOrderController();
   const getOrdersController = new GetOrdersController()
   const editOrderStatusController = new EditOrderStatusController()
-  const aiController = new AiController()
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -102,6 +100,4 @@ export async function routes(fastify: FastifyInstance) {
   // Get routes (products and categories)
   fastify.get("/products", getProductsController.handle);
   fastify.get("/categories", getCategoriesController.handle);
-
-  fastify.get("/ai/insights", { preHandler: [verifyToken] }, aiController.handle)
 }
