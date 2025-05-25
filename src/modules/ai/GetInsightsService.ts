@@ -43,7 +43,7 @@ Responda com um insight claro e direto em português.
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        version: "a8f1a8f9d2f142ed8c76c3e3b24d9ec0aa32141c7f8e9f580b2a66b6e5c190d6", // StableLM Base Alpha 3B
+        version: "", // StableLM Base Alpha 3B
         input: {
           prompt,
           max_length: 200,
