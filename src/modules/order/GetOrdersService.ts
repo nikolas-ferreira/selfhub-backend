@@ -17,7 +17,13 @@ export class GetOrdersService {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+              },
+            },
             customizations: true
           }
         }
