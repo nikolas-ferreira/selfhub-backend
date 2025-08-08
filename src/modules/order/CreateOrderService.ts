@@ -1,11 +1,21 @@
 import prisma from "../../shared/prisma";
 
-interface CreateOrderItem {
-  productId: string;
+interface CustomizationOptionInput {
+  name: string;
+  additionalPrice: number;
   quantity: number;
 }
 
-interface CreateOrderRequest {
+interface CreateOrderItem {
+  productId: string;
+  quantity: number;
+  observation: string;
+  ratingStar: number;
+  imageUrl: string;
+  customizationOptions: CustomizationOptionInput[];
+}
+
+export interface CreateOrderRequest {
   orderNumber: number;
   tableNumber: number;
   waiterNumber: number;
@@ -35,6 +45,16 @@ export class CreateOrderService {
           create: data.items.map((item) => ({
             product: { connect: { id: item.productId } },
             quantity: item.quantity,
+            imageUrl: item.imageUrl,
+            observation: item.observation,
+            ratingStar: item.ratingStar,
+            customizations: {
+              create: item.customizationOptions.map((opt) => ({
+                name: opt.name,
+                additionalPrice: opt.additionalPrice,
+                quantity: opt.quantity,
+              })),
+            },
           })),
         },
       },

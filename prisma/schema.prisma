@@ -127,10 +127,23 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderId   String   @db.ObjectId
-  productId String   @db.ObjectId
-  quantity  Int
-  order     Order    @relation(fields: [orderId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  id          String                      @id @default(auto()) @map("_id") @db.ObjectId
+  orderId     String                      @db.ObjectId
+  productId   String                      @db.ObjectId
+  quantity    Int
+  imageUrl    String
+  observation String
+  ratingStar  Float
+  order       Order                       @relation(fields: [orderId], references: [id])
+  product     Product                     @relation(fields: [productId], references: [id])
+  customizations OrderItemCustomizationOption[]
+}
+
+model OrderItemCustomizationOption {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderItemId     String   @db.ObjectId
+  name            String
+  additionalPrice Float
+  quantity        Int
+  orderItem       OrderItem @relation(fields: [orderItemId], references: [id])
 }
