@@ -27,6 +27,8 @@ export class EditProductController {
         categoryId?: string;
         customizationGroups?: {
           name: string;
+          min: number;
+          max: number;
           options: {
             name: string;
             price: number;
