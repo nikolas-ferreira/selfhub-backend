@@ -18,17 +18,44 @@ export class GetOrderInsightsService {
 
   async execute({ restaurantId }: GetOrderInsightsRequest) {
     console.log(`Generating insights for restaurant ${restaurantId}`)
-    const orders = await prisma.order.findMany({
-      where: { restaurantId },
-      include: {
-        items: {
-          include: { product: true }
-        }
-      },
-      orderBy: { orderedAt: "desc" }
-    })
-
-    console.log(`Fetched ${orders.length} orders`)
+    let orders: any[] = []
+    try {
+      orders = await prisma.order.findMany({
+        where: { restaurantId },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          orderedAt: true,
+          preparedAt: true,
+          deliveredAt: true,
+          finishedAt: true,
+          canceledAt: true,
+          tableNumber: true,
+          waiterNumber: true,
+          totalValue: true,
+          paymentMethod: true,
+          items: {
+            select: {
+              quantity: true,
+              observation: true,
+              ratingStar: true,
+              product: {
+                select: {
+                  name: true,
+                  price: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { orderedAt: "desc" }
+      })
+      console.log(`Fetched ${orders.length} orders`)
+    } catch (error) {
+      console.error("Failed to fetch orders for insights", error)
+      throw error
+    }
 
     const prompt =
       "Você é um assistente especializado em analisar dados de restaurantes. " +
