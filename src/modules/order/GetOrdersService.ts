@@ -17,7 +17,8 @@ export class GetOrdersService {
       include: {
         items: {
           include: {
-            product: true
+            product: true,
+            customizations: true
           }
         }
       },
