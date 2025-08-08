@@ -31,8 +31,14 @@ export async function routes(fastify: FastifyInstance) {
   fastify.post("/auth/register", authController.register);
   fastify.post("/auth/login", authController.login);
 
-  // Restaurant
-  fastify.post("/restaurant", restaurantController.handle);
+  // Restaurant - Protected
+  fastify.post(
+    "/restaurant",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return restaurantController.handle(request, reply);
+    }
+  );
 
   // Profile - Protected
   fastify.put(
