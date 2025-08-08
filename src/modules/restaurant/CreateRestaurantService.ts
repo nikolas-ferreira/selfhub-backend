@@ -1,21 +1,21 @@
 import prismaClient from "../../shared/prisma";
 
 interface CreateRestaurantProps {
-    name: string
+  name: string;
 }
 
 class CreateRestautantService {
-    async execute({ name }: CreateRestaurantProps) {
-        // todo validações
+  async execute({ name }: CreateRestaurantProps) {
+    const sanitizedName = name.trim().replace(/[<>]/g, "");
 
-        const restaurant = await prismaClient.restaurant.create({
-            data: {
-                name
-            }
-        })
+    const restaurant = await prismaClient.restaurant.create({
+      data: {
+        name: sanitizedName,
+      },
+    });
 
-        return restaurant
-    }
+    return restaurant;
+  }
 }
 
-export { CreateRestautantService }
+export { CreateRestautantService };
