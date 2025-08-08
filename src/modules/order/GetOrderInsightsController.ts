@@ -25,6 +25,7 @@ export class GetOrderInsightsController {
         response: insights
       })
     } catch (error) {
+      console.error("GetOrderInsightsController error:", error)
       return reply.status(500).send({
         statusCode: 500,
         response: null,
