@@ -12,7 +12,8 @@ import { EditProductController } from "../modules/product/EditProductController"
 import { CreateOrderController } from "../modules/order/CreateOrderController";
 import { GetOrdersController } from "../modules/order/GetOrdersController";
 import { EditOrderStatusController } from '../modules/order/EditOrderController'
-import { GetOrderInsightsController } from "../modules/order/GetOrderInsightsController"
+import { GetOrderInsightsController } from "../modules/insights/GetOrderInsightsController"
+import { GetProductInsightsController } from "../modules/insights/GetProductInsightsController"
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -28,6 +29,7 @@ export async function routes(fastify: FastifyInstance) {
   const getOrdersController = new GetOrdersController()
   const editOrderStatusController = new EditOrderStatusController()
   const getOrderInsightsController = new GetOrderInsightsController()
+  const getProductInsightsController = new GetProductInsightsController()
 
   // Auth
   fastify.post("/auth/register", authController.register);
@@ -106,10 +108,18 @@ export async function routes(fastify: FastifyInstance) {
   )
 
   fastify.get(
-    "/orders/insights",
+    "/insights/orders",
     { preHandler: [verifyToken] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getOrderInsightsController.handle(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/insights/products",
+    { preHandler: [verifyToken] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return getProductInsightsController.handle(request, reply)
     }
   )
 
