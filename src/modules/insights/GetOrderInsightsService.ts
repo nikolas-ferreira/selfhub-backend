@@ -67,7 +67,7 @@ export class GetOrderInsightsService {
       "Analise detalhadamente estes dados de operação de um restaurante:" +
       JSON.stringify(orders) +
       "\n\nPor favor, forneça uma análise completa com:\n" +
-      "1. Um array de \"insights\" contendo 5 insights detalhados sobre o desempenho do restaurante (cada insight deve ser um parágrafo com 3-5 frases)\n" +
+      "1. Um array de \"insights\" contendo pelo menos 11 insights detalhados sobre o desempenho do restaurante (cada insight deve ser um parágrafo com 3-5 frases)\n" +
       "2. Uma \"trendAnalysis\" - análise aprofundada de tendências nos dados (um parágrafo detalhado)\n" +
       "3. Um array de \"recommendations\" com 5 recomendações acionáveis e específicas\n" +
       "4. Um array de \"keyMetrics\" com pelo menos 4 métricas principais, cada uma com: label, value e change (quando aplicável). A change deve ter value e direction (up/down/neutral)\n" +
