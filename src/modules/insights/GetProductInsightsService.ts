@@ -62,7 +62,7 @@ export class GetProductInsightsService {
     const userMessage =
       "Analise detalhadamente estes dados de pedidos por produto:" +
       JSON.stringify(productsArray) +
-      "\n\nPara cada produto, forneça um array 'insights' com 3 a 5 observações e recomendações específicas. " +
+      "\n\nPara cada produto, forneça um array 'insights' com pelo menos 4 observações e recomendações específicas. " +
       "Responda no formato JSON com a chave 'products', contendo um array onde cada item possui: name e insights (array de strings)."
 
     try {
