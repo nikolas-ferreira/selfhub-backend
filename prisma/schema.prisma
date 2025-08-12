@@ -110,15 +110,15 @@ enum PaymentMethod {
 
 model Order {
   id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber    Int
+  orderNumber    String
   status         OrderStatus    @default(CREATED)
   orderedAt      DateTime       @default(now())
   preparedAt     DateTime?
   deliveredAt    DateTime?
   finishedAt     DateTime?
   canceledAt     DateTime?
-  tableNumber    Int
-  waiterNumber   Int
+  tableNumber    String
+  waiterNumber   String
   totalValue     Float
   paymentMethod  PaymentMethod
   restaurantId   String         @db.ObjectId
