@@ -11,7 +11,7 @@ interface LoggedUser {
 class CreateRestaurantController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { name } = request.body as { name: string };
+      const { name, cnpj } = request.body as { name: string; cnpj: string };
 
       const user = request.user as LoggedUser | undefined;
 
@@ -25,8 +25,18 @@ class CreateRestaurantController {
         return reply.status(400).send(badRequest("Name is required"));
       }
 
+      if (!cnpj || typeof cnpj !== "string" || !cnpj.trim()) {
+        return reply.status(400).send(badRequest("CNPJ is required"));
+      }
+
+      const sanitizedCnpj = cnpj.replace(/\D/g, "");
+
+      if (sanitizedCnpj.length !== 14) {
+        return reply.status(400).send(badRequest("CNPJ must have 14 digits"));
+      }
+
       const restaurantService = new CreateRestautantService();
-      const restaurant = await restaurantService.execute({ name });
+      const restaurant = await restaurantService.execute({ name, cnpj: sanitizedCnpj });
 
       return reply.status(201).send(restaurant);
     } catch (error: any) {
