@@ -36,6 +36,7 @@ export async function routes(fastify: FastifyInstance) {
   // Auth
   fastify.post("/auth/register", authController.register);
   fastify.post("/auth/login", authController.login);
+  fastify.post("/auth/associate-device", authController.associateDevice);
 
   // Restaurant - Public
   fastify.get(
