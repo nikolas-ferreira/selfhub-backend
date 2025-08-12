@@ -37,9 +37,9 @@ model Profile {
   updatedByUserId String?     @db.ObjectId
   role            ProfileRole @default(WAITER)
 
-  categoriesEdited  Category[] @relation("CategoryLastEditor")
-  productsCreated   Product[]  @relation("ProductCreator")
-  productsEdited    Product[]  @relation("ProductLastEditor")
+  categoriesEdited Category[] @relation("CategoryLastEditor")
+  productsCreated  Product[]  @relation("ProductCreator")
+  productsEdited   Product[]  @relation("ProductLastEditor")
 }
 
 model Category {
@@ -56,31 +56,31 @@ model Category {
 }
 
 model Product {
-  id                String               @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  price             Float
-  imageUrl          String
-  description       String
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  categoryId        String               @db.ObjectId
-  category          Category             @relation(fields: [categoryId], references: [id])
-  createdById       String               @db.ObjectId
-  createdBy         Profile              @relation("ProductCreator", fields: [createdById], references: [id])
-  lastEditedById    String               @db.ObjectId
-  lastEditedBy      Profile              @relation("ProductLastEditor", fields: [lastEditedById], references: [id])
-  orderItems        OrderItem[]
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  price               Float
+  imageUrl            String
+  description         String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  categoryId          String               @db.ObjectId
+  category            Category             @relation(fields: [categoryId], references: [id])
+  createdById         String               @db.ObjectId
+  createdBy           Profile              @relation("ProductCreator", fields: [createdById], references: [id])
+  lastEditedById      String               @db.ObjectId
+  lastEditedBy        Profile              @relation("ProductLastEditor", fields: [lastEditedById], references: [id])
+  orderItems          OrderItem[]
   customizationGroups CustomizationGroup[]
 }
 
 model CustomizationGroup {
-  id         String               @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  min        Int
-  max        Int
-  productId  String               @db.ObjectId
-  product    Product              @relation(fields: [productId], references: [id])
-  options    CustomizationOption[]
+  id        String                @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  min       Int
+  max       Int
+  productId String                @db.ObjectId
+  product   Product               @relation(fields: [productId], references: [id])
+  options   CustomizationOption[]
 }
 
 model CustomizationOption {
@@ -106,43 +106,43 @@ enum PaymentMethod {
   CREDIT_CARD
   DEBIT_CARD
   MONEY
+  UNKNOWN
 }
 
 model Order {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber    String
-  status         OrderStatus    @default(CREATED)
-  orderedAt      DateTime       @default(now())
-  preparedAt     DateTime?
-  deliveredAt    DateTime?
-  finishedAt     DateTime?
-  canceledAt     DateTime?
-  tableNumber    String
-  waiterNumber   String
-  totalValue     Float
-  paymentMethod  PaymentMethod
-  restaurantId   String         @db.ObjectId
-  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id])
-  items          OrderItem[]
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber   String
+  status        OrderStatus   @default(CREATED)
+  orderedAt     DateTime      @default(now())
+  preparedAt    DateTime?
+  deliveredAt   DateTime?
+  finishedAt    DateTime?
+  canceledAt    DateTime?
+  tableNumber   String
+  waiterNumber  String
+  totalValue    Float
+  paymentMethod PaymentMethod
+  restaurantId  String        @db.ObjectId
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
+  items         OrderItem[]
 }
 
 model OrderItem {
-  id             String                        @id @default(auto()) @map("_id") @db.ObjectId
-  orderId        String                        @db.ObjectId
-  productId      String                        @db.ObjectId
+  id             String                         @id @default(auto()) @map("_id") @db.ObjectId
+  orderId        String                         @db.ObjectId
+  productId      String                         @db.ObjectId
   quantity       Int
   imageUrl       String?
   observation    String?
   ratingStar     Float?
-  order          Order                         @relation(fields: [orderId], references: [id])
-  product        Product                       @relation(fields: [productId], references: [id])
+  order          Order                          @relation(fields: [orderId], references: [id])
+  product        Product                        @relation(fields: [productId], references: [id])
   customizations OrderItemCustomizationOption[]
 }
 
-
 model OrderItemCustomizationOption {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderItemId     String   @db.ObjectId
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  orderItemId     String    @db.ObjectId
   name            String
   additionalPrice Float
   quantity        Int
