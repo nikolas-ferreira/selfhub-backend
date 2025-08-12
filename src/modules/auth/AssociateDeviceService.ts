@@ -24,11 +24,7 @@ export class AssociateDeviceService {
 
     if (existing) {
       if (existing.restaurantId === restaurant.id) {
-        return {
-          statusCode: 201,
-          response: null,
-          message: "mac address already associated to this cnpj",
-        };
+        return successResponse(null, "mac address already associated to this cnpj");
       }
 
       throw {
