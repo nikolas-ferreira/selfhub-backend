@@ -15,8 +15,19 @@ model Restaurant {
   profiles   Profile[]
   categories Category[]
   orders     Order[]
+  devices    Device[]
 
   @@map("restaurants")
+}
+
+model Device {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  macAddress   String     @unique
+  restaurantId String     @db.ObjectId
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@map("devices")
 }
 
 enum ProfileRole {
