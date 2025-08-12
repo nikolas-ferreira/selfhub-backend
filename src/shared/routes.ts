@@ -3,6 +3,7 @@ import { verifyToken } from "./utils/verifyToken";
 import { AuthController } from "../modules/auth/AuthController";
 import { ProfileController } from "../modules/profile/ProfileController";
 import { CreateRestaurantController } from "../modules/restaurant/CreateRestaurantController";
+import { GetRestaurantController } from "../modules/restaurant/GetRestaurantController";
 import { CreateCategoryController } from "../modules/category/CreateCategoryController";
 import { CreateProductController } from "../modules/product/CreateProductController";
 import { GetProductsController } from "../modules/product/GetProductsController";
@@ -19,6 +20,7 @@ export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
   const profileController = new ProfileController();
   const restaurantController = new CreateRestaurantController();
+  const getRestaurantController = new GetRestaurantController();
   const createCategoryController = new CreateCategoryController();
   const createProductController = new CreateProductController();
   const getProductsController = new GetProductsController();
@@ -34,6 +36,15 @@ export async function routes(fastify: FastifyInstance) {
   // Auth
   fastify.post("/auth/register", authController.register);
   fastify.post("/auth/login", authController.login);
+
+  // Restaurant - Public
+  fastify.get(
+    "/restaurant/:cnpj",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const req = request as FastifyRequest<{ Params: { cnpj: string } }>;
+      return getRestaurantController.handle(req, reply);
+    }
+  );
 
   // Restaurant - Protected
   fastify.post(

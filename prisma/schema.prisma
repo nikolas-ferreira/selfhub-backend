@@ -10,6 +10,7 @@ datasource db {
 model Restaurant {
   id         String     @id @default(auto()) @map("_id") @db.ObjectId
   name       String
+  cnpj       String     @unique
   created_at DateTime?  @default(now())
   profiles   Profile[]
   categories Category[]
