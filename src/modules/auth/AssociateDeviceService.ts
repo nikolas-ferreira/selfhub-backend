@@ -24,7 +24,10 @@ export class AssociateDeviceService {
 
     if (existing) {
       if (existing.restaurantId === restaurant.id) {
-        return successResponse(null, "mac address already associated to this cnpj");
+        return successResponse(
+          restaurant,
+          "mac address already associated to this cnpj"
+        );
       }
 
       throw {
@@ -40,6 +43,6 @@ export class AssociateDeviceService {
       },
     });
 
-    return successResponse(null, "Device associated successfully");
+    return successResponse(restaurant, "Device associated successfully");
   }
 }
