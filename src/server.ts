@@ -8,11 +8,11 @@ const app = Fastify({ logger: true })
 
 const start = async () => {
   try {
+    const allowedOrigins =
+      process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()) || true
+
     await app.register(cors, {
-      origin: [
-        'https://preview--hub-orange-admin-panel.lovable.app',
-        'https://489d023c-83a8-40ed-adeb-0e617ea00b7e.lovableproject.com'
-      ],
+      origin: allowedOrigins,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
       credentials: true
