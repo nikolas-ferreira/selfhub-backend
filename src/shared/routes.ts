@@ -34,13 +34,26 @@ export async function routes(fastify: FastifyInstance) {
   const getProductInsightsController = new GetProductInsightsController()
 
   // Auth
-  fastify.post("/auth/register", authController.register);
-  fastify.post("/auth/login", authController.login);
-  fastify.post("/auth/associate-device", authController.associateDevice);
+  fastify.post(
+    "/auth/register",
+    { schema: { tags: ["Auth"], summary: "Register a new user" } },
+    authController.register
+  );
+  fastify.post(
+    "/auth/login",
+    { schema: { tags: ["Auth"], summary: "Authenticate user" } },
+    authController.login
+  );
+  fastify.post(
+    "/auth/associate-device",
+    { schema: { tags: ["Auth"], summary: "Associate device" } },
+    authController.associateDevice
+  );
 
   // Restaurant - Public
   fastify.get(
     "/restaurant/:cnpj",
+    { schema: { tags: ["Restaurant"], summary: "Get restaurant by CNPJ" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const req = request as FastifyRequest<{ Params: { cnpj: string } }>;
       return getRestaurantController.handle(req, reply);
@@ -50,7 +63,7 @@ export async function routes(fastify: FastifyInstance) {
   // Restaurant - Protected
   fastify.post(
     "/restaurant",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Restaurant"], summary: "Create restaurant" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return restaurantController.handle(request, reply);
     }
@@ -59,7 +72,7 @@ export async function routes(fastify: FastifyInstance) {
   // Profile - Protected
   fastify.put(
     "/profile/:id",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Profile"], summary: "Update user profile" } },
     async (request, reply) => {
       const req = request as FastifyRequest<{ Params: { id: string } }>;
       return profileController.update(req, reply);
@@ -69,7 +82,7 @@ export async function routes(fastify: FastifyInstance) {
   // Category - Protected
   fastify.post(
     "/categories",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Category"], summary: "Create category" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return createCategoryController.handle(request, reply);
     }
@@ -78,7 +91,7 @@ export async function routes(fastify: FastifyInstance) {
   // Product - Protected
   fastify.post(
     "/products",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Product"], summary: "Create product" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return createProductController.handle(request, reply);
     }
@@ -87,7 +100,7 @@ export async function routes(fastify: FastifyInstance) {
   // Edit Category
   fastify.put(
     "/categories/:id",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Category"], summary: "Edit category" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return editCategoryController.handle(request, reply);
     }
@@ -96,16 +109,22 @@ export async function routes(fastify: FastifyInstance) {
   // Edit Product
   fastify.put(
     "/products/:id",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Product"], summary: "Edit product" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return editProductController.handle(request, reply);
     }
   );
 
   // Public create order route (no authentication required)
-  fastify.post("/orders", createOrderController.handle.bind(createOrderController));
+  fastify.post(
+    "/orders",
+    { schema: { tags: ["Order"], summary: "Create order" } },
+    createOrderController.handle.bind(createOrderController)
+  );
 
-  fastify.get("/orders", { preHandler: [verifyToken] },
+  fastify.get(
+    "/orders",
+    { preHandler: [verifyToken], schema: { tags: ["Order"], summary: "List orders" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getOrdersController.handle(request, reply)
     }
@@ -113,7 +132,7 @@ export async function routes(fastify: FastifyInstance) {
 
   fastify.patch(
     '/orders/:id',
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Order"], summary: "Update order status" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return editOrderStatusController.handle(request, reply)
     }
@@ -121,7 +140,7 @@ export async function routes(fastify: FastifyInstance) {
 
   fastify.get(
     "/insights/orders",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Insights"], summary: "Order insights" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getOrderInsightsController.handle(request, reply)
     }
@@ -129,13 +148,21 @@ export async function routes(fastify: FastifyInstance) {
 
   fastify.get(
     "/insights/products",
-    { preHandler: [verifyToken] },
+    { preHandler: [verifyToken], schema: { tags: ["Insights"], summary: "Product insights" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getProductInsightsController.handle(request, reply)
     }
   )
 
   // Get routes (products and categories)
-  fastify.get("/products", getProductsController.handle);
-  fastify.get("/categories", getCategoriesController.handle);
+  fastify.get(
+    "/products",
+    { schema: { tags: ["Product"], summary: "List products" } },
+    getProductsController.handle
+  );
+  fastify.get(
+    "/categories",
+    { schema: { tags: ["Category"], summary: "List categories" } },
+    getCategoriesController.handle
+  );
 }
