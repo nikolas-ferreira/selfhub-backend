@@ -15,6 +15,8 @@ import { GetOrdersController } from "../modules/order/GetOrdersController";
 import { EditOrderStatusController } from '../modules/order/EditOrderController'
 import { GetOrderInsightsController } from "../modules/insights/GetOrderInsightsController"
 import { GetProductInsightsController } from "../modules/insights/GetProductInsightsController"
+import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneController"
+import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
@@ -32,6 +34,8 @@ export async function routes(fastify: FastifyInstance) {
   const editOrderStatusController = new EditOrderStatusController()
   const getOrderInsightsController = new GetOrderInsightsController()
   const getProductInsightsController = new GetProductInsightsController()
+  const deliveryZoneController = new DeliveryZoneController()
+  const getDeliveryOrdersController = new GetDeliveryOrdersController()
 
   // Auth
   fastify.post(
@@ -130,11 +134,51 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.get(
+    "/orders/delivery",
+    { preHandler: [verifyToken], schema: { tags: ["Order"], summary: "List delivery orders" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return getDeliveryOrdersController.handle(request, reply)
+    }
+  )
+
   fastify.patch(
     '/orders/:id',
     { preHandler: [verifyToken], schema: { tags: ["Order"], summary: "Update order status" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return editOrderStatusController.handle(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/delivery-zones",
+    { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "Create delivery zone" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return deliveryZoneController.create(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/delivery-zones",
+    { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "List delivery zones" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return deliveryZoneController.list(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/delivery-zones/:id",
+    { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "Update delivery zone" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return deliveryZoneController.update(request, reply)
+    }
+  )
+
+  fastify.delete(
+    "/delivery-zones/:id",
+    { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "Delete delivery zone" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return deliveryZoneController.delete(request, reply)
     }
   )
 

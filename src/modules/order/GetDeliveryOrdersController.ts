@@ -1,15 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify"
 import { GetOrdersService } from "./GetOrdersService"
-import { OrderOrigin } from "./orderTypes"
 
-type GetOrdersQuery = {
-  productId?: string
-  origin?: OrderOrigin
-}
-
-const validOrigins: OrderOrigin[] = ["DELIVERY", "PICKUP", "LOCAL"]
-
-export class GetOrdersController {
+export class GetDeliveryOrdersController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
 
@@ -21,23 +13,12 @@ export class GetOrdersController {
       })
     }
 
-    const { productId, origin } = request.query as GetOrdersQuery
-
-    if (origin && !validOrigins.includes(origin)) {
-      return reply.status(400).send({
-        statusCode: 400,
-        response: null,
-        message: "Invalid origin filter"
-      })
-    }
-
     const service = new GetOrdersService()
 
     try {
       const orders = await service.execute({
-        productId,
-        origin,
-        restaurantId: user.restaurantId
+        restaurantId: user.restaurantId,
+        origin: "DELIVERY"
       })
 
       return reply.status(200).send({
@@ -48,7 +29,7 @@ export class GetOrdersController {
       return reply.status(500).send({
         statusCode: 500,
         response: null,
-        message: "Failed to fetch orders"
+        message: "Failed to fetch delivery orders"
       })
     }
   }
