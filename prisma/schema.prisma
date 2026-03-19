@@ -8,14 +8,15 @@ datasource db {
 }
 
 model Restaurant {
-  id         String     @id @default(auto()) @map("_id") @db.ObjectId
-  name       String
-  cnpj       String     @unique
-  created_at DateTime?  @default(now())
-  profiles   Profile[]
-  categories Category[]
-  orders     Order[]
-  devices    Device[]
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  cnpj          String         @unique
+  created_at    DateTime?      @default(now())
+  profiles      Profile[]
+  categories    Category[]
+  orders        Order[]
+  devices       Device[]
+  deliveryZones DeliveryZone[]
 
   @@map("restaurants")
 }
@@ -121,22 +122,53 @@ enum PaymentMethod {
   UNKNOWN
 }
 
+enum OrderOrigin {
+  DELIVERY
+  PICKUP
+  LOCAL
+}
+
 model Order {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber   String
-  status        OrderStatus   @default(CREATED)
-  orderedAt     DateTime      @default(now())
-  preparedAt    DateTime?
-  deliveredAt   DateTime?
-  finishedAt    DateTime?
-  canceledAt    DateTime?
-  tableNumber   String
-  waiterNumber  String
-  totalValue    Float
-  paymentMethod PaymentMethod
-  restaurantId  String        @db.ObjectId
-  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
-  items         OrderItem[]
+  id                    String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber           String
+  status                OrderStatus   @default(CREATED)
+  origin                OrderOrigin   @default(LOCAL)
+  orderedAt             DateTime      @default(now())
+  preparedAt            DateTime?
+  deliveredAt           DateTime?
+  finishedAt            DateTime?
+  canceledAt            DateTime?
+  tableNumber           String
+  waiterNumber          String
+  address               Json?
+  deliveryFee           Float?
+  estimatedDeliveryTime Int?
+  deliveryZoneId        String?       @db.ObjectId
+  deliveryZone          DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+  totalValue            Float
+  paymentMethod         PaymentMethod
+  restaurantId          String        @db.ObjectId
+  restaurant            Restaurant    @relation(fields: [restaurantId], references: [id])
+  items                 OrderItem[]
+
+  @@index([origin])
+}
+
+model DeliveryZone {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  deliveryFee   Float
+  estimatedTime Int?
+  isActive      Boolean    @default(true)
+  restaurantId  String     @db.ObjectId
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  lastEditedBy  String     @db.ObjectId
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  orders        Order[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, isActive])
 }
 
 model OrderItem {
