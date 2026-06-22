@@ -15,6 +15,23 @@ import { validateEnv } from './shared/env'
 // stable `errorId` to correlate a client-reported error with a log line.
 const app = Fastify({ logger: true, genReqId: () => randomUUID() })
 
+// The front-end always sends `Content-Type: application/json` even on
+// bodyless requests (e.g. DELETE), which trips Fastify's default JSON parser
+// (`FST_ERR_CTP_EMPTY_JSON_BODY`). Treat an empty body as `{}` instead of a
+// parse error; a genuinely malformed (non-empty) JSON body still fails as before.
+app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+  const raw = body as string
+  if (!raw || !raw.trim()) {
+    done(null, {})
+    return
+  }
+  try {
+    done(null, JSON.parse(raw))
+  } catch (err) {
+    done(err as Error, undefined)
+  }
+})
+
 const start = async () => {
   try {
     validateEnv()
