@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "postinstall": "prisma generate"
   },
   "engines": {
     "node": "22.x",
@@ -18,7 +19,6 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.15.18",
-    "prisma": "^6.8.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
@@ -33,6 +33,7 @@
     "fastify": "^5.3.3",
     "jsonwebtoken": "^9.0.2",
     "openai": "^4.103.0",
+    "prisma": "^6.8.0",
     "tsx": "^4.19.4"
   }
 }
