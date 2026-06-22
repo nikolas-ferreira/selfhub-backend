@@ -25,6 +25,10 @@ export class LoginUserService {
       throw { statusCode: 404, message: "User not found" };
     }
 
+    if (!user.isActive) {
+      throw { statusCode: 403, message: "This account no longer has access. Contact your restaurant's admin." };
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       throw { statusCode: 401, message: "Invalid password" };

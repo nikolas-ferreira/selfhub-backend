@@ -18,6 +18,7 @@ import { GetProductInsightsController } from "../modules/insights/GetProductInsi
 import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneController"
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 import { TableLayoutController } from "../modules/tableLayout/TableLayoutController"
+import { StaffController } from "../modules/staff/StaffController"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -44,6 +45,7 @@ export async function routes(fastify: FastifyInstance) {
   const deliveryZoneController = new DeliveryZoneController()
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
   const tableLayoutController = new TableLayoutController()
+  const staffController = new StaffController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -237,6 +239,38 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["TableLayout"], summary: "Update table status" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return tableLayoutController.updateStatus(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/staff",
+    { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "List team members" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return staffController.list(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/staff",
+    { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "Create team member" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return staffController.create(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/staff/:id",
+    { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "Update team member" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return staffController.update(request, reply)
+    }
+  )
+
+  fastify.delete(
+    "/staff/:id",
+    { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "Remove team member access" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return staffController.remove(request, reply)
     }
   )
 

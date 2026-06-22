@@ -42,7 +42,7 @@ enum ProfileRole {
 model Profile {
   id              String      @id @default(auto()) @map("_id") @db.ObjectId
   name            String
-  lastname        String
+  lastname        String      @default("")
   email           String      @unique
   password        String
   restaurantId    String      @db.ObjectId
@@ -51,6 +51,8 @@ model Profile {
   updatedAt       DateTime?
   updatedByUserId String?     @db.ObjectId
   role            ProfileRole @default(WAITER)
+  /// `false` blocks login (soft-deleted "team member" — see StaffService). Login itself is rejected for inactive profiles regardless of password correctness.
+  isActive        Boolean     @default(true)
 
   categoriesEdited Category[] @relation("CategoryLastEditor")
   productsCreated  Product[]  @relation("ProductCreator")

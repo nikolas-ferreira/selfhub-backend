@@ -42,3 +42,11 @@ export const internalError = (message = "Internal Server Error", errorId?: strin
 /** 400 — malformed or invalid input. */
 export const badRequest = (message = "Bad Request") =>
   errorResponse(400, message);
+
+/** 403 — authenticated, but not allowed to perform this specific action. */
+export const forbidden = (message = "Forbidden") =>
+  errorResponse(403, message);
+
+/** 409 — request conflicts with existing state (e.g. duplicate unique field). */
+export const conflict = (message = "Conflict") =>
+  errorResponse(409, message);
