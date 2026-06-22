@@ -55,4 +55,30 @@ export class TableLayoutController {
 
     return reply.status(result.statusCode).send(result);
   }
+
+  /** `PATCH /restaurants/:restaurantId/tables/:tableId/status` */
+  async updateStatus(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+
+    if (!user) {
+      return reply.status(401).send(unauthorized());
+    }
+
+    const { restaurantId, tableId } = request.params as { restaurantId: string; tableId: string };
+
+    if (restaurantId !== user.restaurantId) {
+      return reply.status(401).send(unauthorized("You don't have access to this restaurant"));
+    }
+
+    const { status } = request.body as { status?: unknown };
+
+    if (typeof status !== "string") {
+      return reply.status(400).send(badRequest("'status' is required"));
+    }
+
+    const service = new TableLayoutService();
+    const result = await service.updateStatus({ tableId, status, loggedUser: user });
+
+    return reply.status(result.statusCode).send(result);
+  }
 }

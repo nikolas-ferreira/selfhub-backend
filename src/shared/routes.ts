@@ -232,6 +232,14 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.patch(
+    "/restaurants/:restaurantId/tables/:tableId/status",
+    { preHandler: [verifyToken], schema: { tags: ["TableLayout"], summary: "Update table status" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return tableLayoutController.updateStatus(request, reply)
+    }
+  )
+
   // Get routes (products and categories)
   fastify.get(
     "/products",

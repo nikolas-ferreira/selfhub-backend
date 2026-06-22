@@ -1,5 +1,8 @@
 import prisma from "../../shared/prisma";
-import { badRequest, unauthorized } from "../../shared/utils/httpResponse";
+import { badRequest, notFound, unauthorized } from "../../shared/utils/httpResponse";
+
+const TABLE_STATUSES = ["free", "occupied", "reserved", "cleaning"] as const;
+type TableStatusValue = (typeof TABLE_STATUSES)[number];
 
 interface LoggedUser {
   id: string;
@@ -187,5 +190,43 @@ export class TableLayoutService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Manual status override from the layout editor — independent of "Save Layout".
+   * No transition restrictions (any status to any status); only `status`/`updatedAt`
+   * change, `number`/`position`/`size` are untouched.
+   */
+  async updateStatus({
+    tableId,
+    status,
+    loggedUser,
+  }: {
+    tableId: string;
+    status: string;
+    loggedUser: LoggedUser;
+  }) {
+    if (!TABLE_STATUSES.includes(status as TableStatusValue)) {
+      return badRequest("'status' must be one of: free, occupied, reserved, cleaning");
+    }
+
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, restaurantId: loggedUser.restaurantId },
+    });
+
+    if (!table) {
+      return notFound("Table not found");
+    }
+
+    const updated = await prisma.table.update({
+      where: { id: tableId },
+      data: { status: status as TableStatusValue },
+    });
+
+    return {
+      statusCode: 200,
+      response: formatTable(updated),
+      message: "Table status updated successfully",
+    };
   }
 }
