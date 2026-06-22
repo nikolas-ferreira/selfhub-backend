@@ -227,15 +227,14 @@ enum TableStatus {
   cleaning
 }
 
-enum WallType {
-  horizontal
-  vertical
-  custom
-}
-
 type Position {
   x Float
   y Float
+}
+
+type TableSize {
+  width  Float
+  height Float
 }
 
 /**
@@ -243,13 +242,15 @@ type Position {
  * operational state (open order, etc.) and is intentionally never written
  * by the layout save endpoint — see TableLayoutService. `position` is
  * `null` while the table exists but hasn't been placed on the floor plan
- * yet (shown in the editor's "available tables" list).
+ * yet (shown in the editor's "available tables" list). `size` is `null`
+ * when the editor should fall back to its default table dimensions.
  */
 model Table {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
   number       Int
   status       TableStatus @default(free)
   position     Position?
+  size         TableSize?
   restaurantId String      @db.ObjectId
   restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime    @default(now())
@@ -259,18 +260,17 @@ model Table {
 }
 
 /**
- * A wall drawn on the table-layout editor's floor plan. Purely visual —
- * unrelated to orders. Coordinates/length/angle are canvas pixel values
- * from the editor and are stored/returned as-is, with no unit conversion
- * or geometric validation.
+ * A wall drawn on the table-layout editor's floor plan: a straight segment
+ * from `start` to `end` (any angle — no more horizontal/vertical/custom
+ * distinction). Purely visual, unrelated to orders. Coordinates/thickness
+ * are canvas pixel values from the editor, stored/returned as-is with no
+ * unit conversion or geometric validation.
  */
 model Wall {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
-  type         WallType
-  position     Position
-  length       Float
-  angle        Float?
-  points       Position[]
+  start        Position
+  end          Position
+  thickness    Float      @default(8)
   restaurantId String     @db.ObjectId
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime   @default(now())

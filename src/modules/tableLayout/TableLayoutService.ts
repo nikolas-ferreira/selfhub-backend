@@ -12,19 +12,23 @@ interface Point {
   y: number;
 }
 
+interface Size {
+  width: number;
+  height: number;
+}
+
 interface TableInput {
   id?: string;
   number: number;
   position: Point | null;
+  size?: Size | null;
 }
 
 interface WallInput {
   id?: string;
-  type: "horizontal" | "vertical" | "custom";
-  position: Point;
-  length: number;
-  angle?: number | null;
-  points?: Point[] | null;
+  start: Point;
+  end: Point;
+  thickness?: number | null;
 }
 
 interface SaveLayoutInput {
@@ -33,27 +37,25 @@ interface SaveLayoutInput {
   loggedUser: LoggedUser;
 }
 
-const formatTable = (table: { id: string; number: number; status: string; position: Point | null }) => ({
+const formatTable = (table: {
+  id: string;
+  number: number;
+  status: string;
+  position: Point | null;
+  size: Size | null;
+}) => ({
   id: table.id,
   number: table.number,
   status: table.status,
   position: table.position ? { x: table.position.x, y: table.position.y } : null,
+  ...(table.size ? { size: { width: table.size.width, height: table.size.height } } : {}),
 });
 
-const formatWall = (wall: {
-  id: string;
-  type: string;
-  position: Point;
-  length: number;
-  angle: number | null;
-  points: Point[];
-}) => ({
+const formatWall = (wall: { id: string; start: Point; end: Point; thickness: number }) => ({
   id: wall.id,
-  type: wall.type,
-  position: { x: wall.position.x, y: wall.position.y },
-  length: wall.length,
-  ...(wall.angle !== null ? { angle: wall.angle } : {}),
-  ...(wall.points.length ? { points: wall.points.map((p) => ({ x: p.x, y: p.y })) } : {}),
+  start: { x: wall.start.x, y: wall.start.y },
+  end: { x: wall.end.x, y: wall.end.y },
+  thickness: wall.thickness,
 });
 
 /**
@@ -102,11 +104,11 @@ export class TableLayoutService {
     }
 
     for (const wall of walls) {
-      if (!wall.position || typeof wall.position.x !== "number" || typeof wall.position.y !== "number") {
-        return badRequest("Each wall must have a valid 'position'");
+      if (!wall.start || typeof wall.start.x !== "number" || typeof wall.start.y !== "number") {
+        return badRequest("Each wall must have a valid 'start'");
       }
-      if (typeof wall.length !== "number") {
-        return badRequest("Each wall must have a numeric 'length'");
+      if (!wall.end || typeof wall.end.x !== "number" || typeof wall.end.y !== "number") {
+        return badRequest("Each wall must have a valid 'end'");
       }
     }
 
@@ -130,6 +132,7 @@ export class TableLayoutService {
           const data = {
             number: table.number,
             position: table.position ? { x: table.position.x, y: table.position.y } : null,
+            size: table.size ? { width: table.size.width, height: table.size.height } : null,
           };
 
           if (table.id && existingTableIds.has(table.id)) {
@@ -155,11 +158,9 @@ export class TableLayoutService {
 
         for (const wall of walls) {
           const data = {
-            type: wall.type,
-            position: { x: wall.position.x, y: wall.position.y },
-            length: wall.length,
-            angle: wall.angle ?? null,
-            points: (wall.points ?? []).map((p) => ({ x: p.x, y: p.y })),
+            start: { x: wall.start.x, y: wall.start.y },
+            end: { x: wall.end.x, y: wall.end.y },
+            thickness: wall.thickness ?? 8,
           };
 
           if (wall.id && existingWallIds.has(wall.id)) {
