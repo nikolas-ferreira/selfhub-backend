@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { CreateProductService } from "./CreateProductService";
-import { internalError } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface LoggedUser {
   id: string;
@@ -8,7 +8,9 @@ interface LoggedUser {
   restaurantId: string;
 }
 
+/** HTTP layer for `POST /products`. */
 export class CreateProductController {
+  /** Requires an authenticated user; role/ownership checks happen in {@link CreateProductService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
       const {
@@ -57,9 +59,8 @@ export class CreateProductController {
       });
 
       return reply.status(result.statusCode).send(result);
-    } catch (err: any) {
-      console.error(err);
-      return reply.status(500).send(internalError("Failed to create product"));
+    } catch (err) {
+      return respondInternalError(request, reply, err, "Failed to create product");
     }
   }
 }

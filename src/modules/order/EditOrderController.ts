@@ -12,7 +12,9 @@ interface AuthenticatedUser {
   restaurantId: string
 }
 
+/** HTTP layer for `PATCH /orders/:id` (status transitions). Restricted to ADMIN/MANAGER. */
 export class EditOrderStatusController {
+  /** Validates the caller's role and that `status` is a known {@link OrderStatus} before delegating. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { id: orderId } = request.params as { id: string }
     const { status } = request.body as EditOrderStatusBody
@@ -23,6 +25,14 @@ export class EditOrderStatusController {
         statusCode: 403,
         response: null,
         message: 'Permission denied'
+      })
+    }
+
+    if (!status || !Object.values(OrderStatus).includes(status)) {
+      return reply.status(400).send({
+        statusCode: 400,
+        response: null,
+        message: 'Invalid order status'
       })
     }
 

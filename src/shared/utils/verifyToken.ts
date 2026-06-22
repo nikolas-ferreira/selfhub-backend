@@ -1,6 +1,13 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import jwt from "jsonwebtoken";
 
+/**
+ * Fastify `preHandler` that authenticates a request via `Authorization: Bearer <jwt>`.
+ *
+ * On success, populates `request.user` with `{ id, role, restaurantId }` decoded
+ * from the token (see {@link LoginUserService} for what gets signed). On failure,
+ * short-circuits the request with a 401 — it never calls `next()`/throws past itself.
+ */
 export async function verifyToken(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
 

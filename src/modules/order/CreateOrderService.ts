@@ -30,11 +30,69 @@ export interface CreateOrderRequest {
   items: CreateOrderItem[];
 }
 
+/**
+ * Creates an order placed by an unauthenticated caller (table QR code / guest checkout).
+ *
+ * Because this endpoint has no auth, nothing from the request is trusted for
+ * pricing or tenancy: `restaurantId` and every `productId` are verified to
+ * exist and belong together, and `totalValue` is always recomputed from the
+ * catalog rather than accepted from the client (see RFC §"Order pricing trust
+ * boundary" for the remaining caveat around customization option prices).
+ */
 export class CreateOrderService {
+  /**
+   * @throws {Error} for any validation failure (missing/invalid restaurant,
+   * empty/invalid items, product not in this restaurant's catalog, or
+   * inconsistent delivery-zone/address data) — the controller maps these to 400.
+   */
   async execute(data: CreateOrderRequest) {
-    if (!data.items || !Array.isArray(data.items)) {
+    if (!data.restaurantId || !/^[0-9a-fA-F]{24}$/.test(data.restaurantId)) {
+      throw new Error("Invalid restaurantId");
+    }
+
+    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
       throw new Error("Items array is required");
     }
+
+    for (const item of data.items) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        throw new Error("Each item requires a valid productId and a positive quantity");
+      }
+    }
+
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: data.restaurantId },
+    });
+
+    if (!restaurant) {
+      throw new Error("Restaurant not found");
+    }
+
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: data.items.map((item) => item.productId) },
+        category: { restaurantId: data.restaurantId },
+      },
+    });
+
+    const productById = new Map(products.map((product) => [product.id, product]));
+
+    for (const item of data.items) {
+      if (!productById.has(item.productId)) {
+        throw new Error(`Product ${item.productId} does not belong to this restaurant`);
+      }
+    }
+
+    // Prices are always recomputed server-side from the catalog; client-supplied
+    // totalValue/prices are never trusted.
+    const totalValue = data.items.reduce((sum, item) => {
+      const product = productById.get(item.productId)!;
+      const customizationsTotal = (item.customizationOptions || []).reduce(
+        (acc, opt) => acc + opt.additionalPrice * opt.quantity,
+        0
+      );
+      return sum + (product.price + customizationsTotal) * item.quantity;
+    }, 0);
 
     const origin: OrderOrigin = data.origin || "LOCAL";
     let deliveryFee: number | null = null;
@@ -81,7 +139,7 @@ export class CreateOrderService {
         orderedAt: new Date(),
         tableNumber: String(data.tableNumber),
         waiterNumber: String(data.waiterNumber),
-        totalValue: data.totalValue,
+        totalValue,
         paymentMethod: data.paymentMethod,
         restaurantId: data.restaurantId,
         deliveryZoneId,

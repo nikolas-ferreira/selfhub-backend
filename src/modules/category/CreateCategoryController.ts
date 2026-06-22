@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { CreateCategoryService } from "./CreateCategoryService";
-import { internalError } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface LoggedUser {
   id: string;
@@ -8,7 +8,9 @@ interface LoggedUser {
   restaurantId: string;
 }
 
+/** HTTP layer for `POST /categories`. */
 export class CreateCategoryController {
+  /** Requires an authenticated user; role check (MANAGER/ADMIN) happens in {@link CreateCategoryService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { name, iconUrl } = request.body as { name: string; iconUrl: string };
@@ -27,9 +29,8 @@ export class CreateCategoryController {
       const result = await service.execute({ name, iconUrl, loggedUser });
 
       return reply.status(result.statusCode).send(result);
-    } catch (err: any) {
-      console.error(err);
-      return reply.status(500).send(internalError("Failed to create category"));
+    } catch (err) {
+      return respondInternalError(request, reply, err, "Failed to create category");
     }
   }
 }

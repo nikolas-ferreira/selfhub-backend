@@ -12,7 +12,12 @@ interface EditCategoryRequest {
   };
 }
 
+/** Edits a category, scoped to the caller's restaurant. */
 export class EditCategoryService {
+  /**
+   * Rejects WAITER; 404s if the category doesn't exist or belongs to another
+   * restaurant (same response for both, to avoid leaking existence across tenants).
+   */
   async execute({ id, name, iconUrl, loggedUser }: EditCategoryRequest) {
     if (loggedUser.role === "WAITER") {
       return unauthorized("Only MANAGER or ADMIN can edit categories");

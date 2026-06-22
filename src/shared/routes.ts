@@ -18,6 +18,12 @@ import { GetProductInsightsController } from "../modules/insights/GetProductInsi
 import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneController"
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 
+/**
+ * Registers every HTTP route for the API on the given Fastify instance.
+ * Each controller is instantiated once here and reused across requests
+ * (controllers/services are stateless). Routes that require auth attach
+ * {@link verifyToken} as a `preHandler`, which populates `request.user`.
+ */
 export async function routes(fastify: FastifyInstance) {
   const authController = new AuthController();
   const profileController = new ProfileController();
@@ -38,19 +44,21 @@ export async function routes(fastify: FastifyInstance) {
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
 
   // Auth
+  const authRateLimit = { max: 10, timeWindow: "1 minute" };
+
   fastify.post(
     "/auth/register",
-    { schema: { tags: ["Auth"], summary: "Register a new user" } },
+    { config: { rateLimit: authRateLimit }, schema: { tags: ["Auth"], summary: "Register a new user" } },
     authController.register
   );
   fastify.post(
     "/auth/login",
-    { schema: { tags: ["Auth"], summary: "Authenticate user" } },
+    { config: { rateLimit: authRateLimit }, schema: { tags: ["Auth"], summary: "Authenticate user" } },
     authController.login
   );
   fastify.post(
     "/auth/associate-device",
-    { schema: { tags: ["Auth"], summary: "Associate device" } },
+    { config: { rateLimit: authRateLimit }, schema: { tags: ["Auth"], summary: "Associate device" } },
     authController.associateDevice
   );
 
@@ -122,7 +130,10 @@ export async function routes(fastify: FastifyInstance) {
   // Public create order route (no authentication required)
   fastify.post(
     "/orders",
-    { schema: { tags: ["Order"], summary: "Create order" } },
+    {
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+      schema: { tags: ["Order"], summary: "Create order" }
+    },
     createOrderController.handle.bind(createOrderController)
   );
 

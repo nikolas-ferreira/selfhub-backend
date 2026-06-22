@@ -1,6 +1,8 @@
 import { FastifyReply, FastifyRequest } from "fastify"
 import { GetProductInsightsService } from "./GetProductInsightsService"
+import { respondInternalError } from "../../shared/utils/respondInternalError"
 
+/** `GET /insights/products` — AI-generated per-product analytics for the caller's restaurant. Restricted to ADMIN/MANAGER. */
 export class GetProductInsightsController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
@@ -25,12 +27,7 @@ export class GetProductInsightsController {
         response: insights,
       })
     } catch (error) {
-      console.error("GetProductInsightsController error:", error)
-      return reply.status(500).send({
-        statusCode: 500,
-        response: null,
-        message: "Failed to generate insights",
-      })
+      return respondInternalError(request, reply, error, "Failed to generate insights")
     }
   }
 }

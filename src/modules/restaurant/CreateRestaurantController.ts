@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { CreateRestautantService } from "./CreateRestaurantService";
-import { errorResponse, internalError, badRequest } from "../../shared/utils/httpResponse";
+import { errorResponse, badRequest, successResponse } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface LoggedUser {
   id: string;
@@ -8,7 +9,9 @@ interface LoggedUser {
   restaurantId: string;
 }
 
+/** HTTP layer for `POST /restaurant`. Requires an authenticated ADMIN. */
 class CreateRestaurantController {
+  /** Validates input, enforces the ADMIN-only rule, then delegates to {@link CreateRestautantService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { name, cnpj } = request.body as { name: string; cnpj: string };
@@ -38,12 +41,9 @@ class CreateRestaurantController {
       const restaurantService = new CreateRestautantService();
       const restaurant = await restaurantService.execute({ name, cnpj: sanitizedCnpj });
 
-      return reply.status(201).send(restaurant);
-    } catch (error: any) {
-      console.error(error);
-      return reply
-        .status(500)
-        .send(internalError("Failed to create restaurant"));
+      return reply.status(201).send(successResponse(restaurant, "Restaurant created successfully"));
+    } catch (error) {
+      return respondInternalError(request, reply, error, "Failed to create restaurant");
     }
   }
 }

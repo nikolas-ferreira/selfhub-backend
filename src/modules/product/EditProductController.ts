@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { EditProductService } from "./EditProductService";
-import { internalError } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface LoggedUser {
   id: string;
@@ -8,7 +8,9 @@ interface LoggedUser {
   restaurantId: string;
 }
 
+/** HTTP layer for `PUT /products/:id`. */
 export class EditProductController {
+  /** Requires an authenticated user; role/ownership checks happen in {@link EditProductService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
@@ -60,8 +62,7 @@ export class EditProductController {
 
       return reply.status(result.statusCode).send(result);
     } catch (err) {
-      console.error(err);
-      return reply.status(500).send(internalError("Failed to update product"));
+      return respondInternalError(request, reply, err, "Failed to update product");
     }
   }
 }

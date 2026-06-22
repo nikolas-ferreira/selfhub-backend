@@ -1,12 +1,14 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { UpdateProfileService } from "./UpdateProfileService";
-import { internalError } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface UpdateProfileParams {
   id: string;
 }
 
+/** HTTP layer for `/profile/:id`. */
 class ProfileController {
+  /** `PUT /profile/:id` — updates name/lastname/email/password/role of a profile. */
   async update(
     request: FastifyRequest<{ Params: UpdateProfileParams }>,
     reply: FastifyReply
@@ -42,8 +44,7 @@ class ProfileController {
 
       return reply.status(result.statusCode).send(result);
     } catch (error: any) {
-      console.error(error);
-      return reply.status(500).send(internalError(error?.message || "Failed to update profile"));
+      return respondInternalError(request, reply, error, "Failed to update profile");
     }
   }
 }

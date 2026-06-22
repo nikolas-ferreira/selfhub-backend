@@ -7,7 +7,9 @@ interface LoggedUser {
   restaurantId: string
 }
 
+/** HTTP layer for `/delivery-zones` CRUD. Role checks (MANAGER/ADMIN) happen in {@link DeliveryZoneService}. */
 export class DeliveryZoneController {
+  /** `POST /delivery-zones` */
   async create(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser
 
@@ -27,6 +29,7 @@ export class DeliveryZoneController {
     return reply.status(result.statusCode).send(result)
   }
 
+  /** `GET /delivery-zones` — any authenticated user in the restaurant. */
   async list(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser
 
@@ -40,6 +43,7 @@ export class DeliveryZoneController {
     return reply.status(result.statusCode).send(result)
   }
 
+  /** `PUT /delivery-zones/:id` */
   async update(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser
 
@@ -60,6 +64,7 @@ export class DeliveryZoneController {
     return reply.status(result.statusCode).send(result)
   }
 
+  /** `DELETE /delivery-zones/:id` — see {@link DeliveryZoneService.remove} for delete-vs-deactivate semantics. */
   async delete(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser
 

@@ -1,6 +1,6 @@
 import prismaClient from "../../shared/prisma";
 import bcrypt from "bcryptjs";
-import { successResponse, internalError, unauthorized } from "../../shared/utils/httpResponse";
+import { successResponse, internalError, unauthorized, errorResponse } from "../../shared/utils/httpResponse";
 
 interface UpdateProfileServiceProps {
   profileId: string;
@@ -16,7 +16,24 @@ interface UpdateProfileServiceProps {
   };
 }
 
+/**
+ * Updates a profile's editable fields and, optionally, its role.
+ *
+ * Authorization model:
+ * - A profile can always edit itself (except its own role, see below).
+ * - WAITER can never edit another profile.
+ * - MANAGER can edit other profiles only if their current role is WAITER.
+ * - ADMIN can edit any profile in the same restaurant.
+ * - Role changes additionally require the hierarchical check in this method:
+ *   WAITER can never change roles; MANAGER may only promote/demote within
+ *   WAITER↔WAITER (i.e. effectively a no-op safeguard); ADMIN may set any role.
+ */
 export class UpdateProfileService {
+  /**
+   * @throws nothing — returns an error envelope (`unauthorized`/`internalError`/
+   * `errorResponse`) instead of throwing, except for unexpected Prisma failures
+   * which are caught and converted to a generic 500.
+   */
   async execute({
     profileId,
     name,
@@ -37,6 +54,18 @@ export class UpdateProfileService {
 
       if (profile.restaurantId !== loggedUser.restaurantId) {
         return unauthorized("You can only edit users from your own restaurant");
+      }
+
+      const isSelf = profileId === loggedUser.id;
+
+      if (!isSelf) {
+        if (loggedUser.role === "WAITER") {
+          return unauthorized("You are not allowed to edit other users");
+        }
+
+        if (loggedUser.role === "MANAGER" && profile.role !== "WAITER") {
+          return unauthorized("Managers can only edit waiter profiles");
+        }
       }
 
       // Validação para alteração de role
@@ -91,7 +120,10 @@ export class UpdateProfileService {
         "Profile updated successfully"
       );
     } catch (error: any) {
-      return internalError(error.message);
+      if (error?.statusCode && error.statusCode < 500) {
+        return errorResponse(error.statusCode, error.message);
+      }
+      return internalError("Failed to update profile");
     }
   }
 }

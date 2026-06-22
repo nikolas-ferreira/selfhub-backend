@@ -11,7 +11,9 @@ interface CreateCategoryRequest {
   };
 }
 
+/** Creates menu categories scoped to the caller's restaurant. */
 export class CreateCategoryService {
+  /** Rejects WAITER; otherwise creates the category under `loggedUser.restaurantId`. */
   async execute({ name, iconUrl, loggedUser }: CreateCategoryRequest) {
     if (loggedUser.role === "WAITER") {
       return unauthorized("Only MANAGER or ADMIN can create categories");

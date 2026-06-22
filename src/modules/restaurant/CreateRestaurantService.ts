@@ -5,7 +5,9 @@ interface CreateRestaurantProps {
   cnpj: string;
 }
 
+/** Creates restaurant records. Authorization (ADMIN-only) is enforced by the controller. */
 class CreateRestautantService {
+  /** Sanitizes `name`/`cnpj` and persists a new restaurant. `cnpj` must be globally unique. */
   async execute({ name, cnpj }: CreateRestaurantProps) {
     const sanitizedName = name.trim().replace(/[<>]/g, "");
     const sanitizedCnpj = cnpj.replace(/\D/g, "");

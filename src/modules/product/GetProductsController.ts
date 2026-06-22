@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import prismaClient from "../../shared/prisma";
-import { badRequest, internalError, successResponse } from "../../shared/utils/httpResponse";
+import { badRequest, successResponse } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface ProductsQuery {
   Querystring: {
@@ -9,6 +10,10 @@ interface ProductsQuery {
   };
 }
 
+/**
+ * `GET /products` — public catalog listing, filtered by `categoryId` or `restaurantId`.
+ * Queries Prisma directly (no service layer); see RFC for the planned `GetProductsService` extraction.
+ */
 export class GetProductsController {
   async handle(request: FastifyRequest<ProductsQuery>, reply: FastifyReply) {
     try {
@@ -41,8 +46,7 @@ export class GetProductsController {
 
       return reply.send(successResponse(products));
     } catch (err) {
-      console.error(err);
-      return reply.status(500).send(internalError("Failed to fetch products"));
+      return respondInternalError(request, reply, err, "Failed to fetch products");
     }
   }
 }

@@ -30,7 +30,17 @@ interface EditProductRequest {
   loggedUser: LoggedUser;
 }
 
+/** Edits a product's fields and, optionally, fully replaces its customization groups/options. */
 export class EditProductService {
+  /**
+   * Rejects WAITER; 404s if the product (or, when changing it, the new
+   * `categoryId`) doesn't belong to the caller's restaurant.
+   *
+   * When `customizationGroups` is provided, this performs a full
+   * delete-then-recreate of all groups/options as a sequence of separate
+   * awaits (not wrapped in a transaction) — see RFC for the planned fix
+   * (`$transaction` + nested `create` instead of per-row loops).
+   */
   async execute({
     id,
     name,

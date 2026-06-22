@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify"
 import { GetOrdersService } from "./GetOrdersService"
 import { OrderOrigin } from "./orderTypes"
+import { respondInternalError } from "../../shared/utils/respondInternalError"
 
 type GetOrdersQuery = {
   productId?: string
@@ -10,7 +11,9 @@ type GetOrdersQuery = {
 const validOrigins: OrderOrigin[] = ["DELIVERY", "PICKUP", "LOCAL"]
 const objectIdRegex = /^[a-fA-F0-9]{24}$/
 
+/** `GET /orders` — lists orders for the caller's restaurant, restricted to ADMIN/MANAGER. */
 export class GetOrdersController {
+  /** Validates `productId`/`origin` query filters before delegating to {@link GetOrdersService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
 
@@ -62,13 +65,7 @@ export class GetOrdersController {
         response: orders
       })
     } catch (error) {
-      request.log.error({ error, productId, origin, restaurantId: user.restaurantId }, "Failed to fetch orders")
-
-      return reply.status(500).send({
-        statusCode: 500,
-        response: null,
-        message: "Failed to fetch orders"
-      })
+      return respondInternalError(request, reply, error, "Failed to fetch orders")
     }
   }
 }

@@ -27,7 +27,13 @@ interface CreateProductRequest {
   customizationGroups?: CustomizationGroupInput[];
 }
 
+/** Creates products (with optional nested customization groups/options) for a category. */
 export class CreateProductService {
+  /**
+   * Rejects WAITER; 404s if `categoryId` doesn't exist or belongs to another
+   * restaurant. `customizationGroups`, when provided, are created in the same
+   * nested write as the product (atomic — single Prisma `create`).
+   */
   async execute({
     name,
     price,

@@ -1,4 +1,4 @@
-
+/** Mirrors the `OrderStatus` enum in `prisma/schema.prisma`. Keep both in sync. */
 export enum OrderStatus {
   CREATED = 'CREATED',
   PREPARING = 'PREPARING',

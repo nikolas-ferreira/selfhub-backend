@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import prismaClient from "../../shared/prisma";
-import { badRequest, internalError, successResponse } from "../../shared/utils/httpResponse";
+import { badRequest, successResponse } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface CategoriesQuery {
   Querystring: {
@@ -8,6 +9,10 @@ interface CategoriesQuery {
   };
 }
 
+/**
+ * `GET /categories` — public catalog listing, filtered by `restaurantId` query param.
+ * Queries Prisma directly (no service layer); see RFC for the planned `GetCategoriesService` extraction.
+ */
 export class GetCategoriesController {
   async handle(request: FastifyRequest<CategoriesQuery>, reply: FastifyReply) {
     try {
@@ -25,8 +30,7 @@ export class GetCategoriesController {
 
       return reply.send(successResponse(categories));
     } catch (err) {
-      console.error(err);
-      return reply.status(500).send(internalError("Failed to fetch categories"));
+      return respondInternalError(request, reply, err, "Failed to fetch categories");
     }
   }
 }

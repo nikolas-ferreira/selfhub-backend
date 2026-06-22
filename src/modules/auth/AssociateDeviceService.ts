@@ -6,7 +6,18 @@ interface AssociateDeviceProps {
   restaurantCnpj: string;
 }
 
+/**
+ * Pairs a physical device (kiosk/terminal) with a restaurant by CNPJ.
+ * Public/unauthenticated endpoint — intended for first-boot device pairing.
+ */
 export class AssociateDeviceService {
+  /**
+   * Associates `macAddress` with the restaurant identified by `restaurantCnpj`.
+   * Idempotent for the same restaurant; rejects re-pairing to a different one.
+   *
+   * @throws {{statusCode: 404}} if no restaurant matches the CNPJ.
+   * @throws {{statusCode: 402}} if the MAC address is already bound to another restaurant.
+   */
   async execute({ macAddress, restaurantCnpj }: AssociateDeviceProps) {
     const sanitizedCnpj = restaurantCnpj.replace(/\D/g, "");
 

@@ -1,6 +1,8 @@
 import { FastifyReply, FastifyRequest } from "fastify"
 import { GetOrdersService } from "./GetOrdersService"
+import { respondInternalError } from "../../shared/utils/respondInternalError"
 
+/** `GET /orders/delivery` — shortcut for {@link GetOrdersService} pre-filtered to `origin: "DELIVERY"`. Restricted to ADMIN/MANAGER. */
 export class GetDeliveryOrdersController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
@@ -26,11 +28,7 @@ export class GetDeliveryOrdersController {
         response: orders
       })
     } catch (error) {
-      return reply.status(500).send({
-        statusCode: 500,
-        response: null,
-        message: "Failed to fetch delivery orders"
-      })
+      return respondInternalError(request, reply, error, "Failed to fetch delivery orders")
     }
   }
 }

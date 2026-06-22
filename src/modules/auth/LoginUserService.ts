@@ -8,7 +8,16 @@ interface LoginUserProps {
   password: string;
 }
 
+/** Authenticates a profile by email/password and issues a JWT. */
 export class LoginUserService {
+  /**
+   * Validates credentials and signs a 1-day JWT containing `id`, `role` and
+   * `restaurantId`, which is what {@link verifyToken} later decodes into
+   * `request.user`.
+   *
+   * @throws {{statusCode: 404}} if no profile matches the email.
+   * @throws {{statusCode: 401}} if the password does not match.
+   */
   async execute({ email, password }: LoginUserProps) {
     const user = await prismaClient.profile.findUnique({ where: { email } });
 

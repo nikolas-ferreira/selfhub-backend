@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import prismaClient from "../../shared/prisma";
-import { badRequest, internalError, notFound, successResponse } from "../../shared/utils/httpResponse";
+import { badRequest, notFound, successResponse } from "../../shared/utils/httpResponse";
+import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 interface GetRestaurantParams {
   Params: {
@@ -8,7 +9,9 @@ interface GetRestaurantParams {
   };
 }
 
+/** `GET /restaurant/:cnpj` — public lookup, used e.g. to resolve a restaurant from a QR code. */
 export class GetRestaurantController {
+  /** Looks up a restaurant by (sanitized) CNPJ. No Prisma-querying layer below this — talks to the DB directly. */
   async handle(request: FastifyRequest<GetRestaurantParams>, reply: FastifyReply) {
     try {
       const { cnpj } = request.params;
@@ -33,10 +36,7 @@ export class GetRestaurantController {
 
       return reply.send(successResponse(restaurant));
     } catch (err) {
-      console.error(err);
-      return reply
-        .status(500)
-        .send(internalError("Failed to fetch restaurant"));
+      return respondInternalError(request, reply, err, "Failed to fetch restaurant");
     }
   }
 }
