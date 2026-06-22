@@ -17,6 +17,7 @@ import { GetOrderInsightsController } from "../modules/insights/GetOrderInsights
 import { GetProductInsightsController } from "../modules/insights/GetProductInsightsController"
 import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneController"
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
+import { TableLayoutController } from "../modules/tableLayout/TableLayoutController"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -42,6 +43,7 @@ export async function routes(fastify: FastifyInstance) {
   const getProductInsightsController = new GetProductInsightsController()
   const deliveryZoneController = new DeliveryZoneController()
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
+  const tableLayoutController = new TableLayoutController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -211,6 +213,22 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["Insights"], summary: "Product insights" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return getProductInsightsController.handle(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/restaurants/:restaurantId/table-layout",
+    { preHandler: [verifyToken], schema: { tags: ["TableLayout"], summary: "Get table layout" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return tableLayoutController.get(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/restaurants/:restaurantId/table-layout",
+    { preHandler: [verifyToken], schema: { tags: ["TableLayout"], summary: "Save table layout" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return tableLayoutController.save(request, reply)
     }
   )
 
