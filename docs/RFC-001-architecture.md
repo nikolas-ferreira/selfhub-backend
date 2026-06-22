@@ -39,6 +39,28 @@ routes.ts → Controller → Service → Prisma
   (`src/shared/utils/verifyToken.ts`). Isso popula `request.user = { id, role, restaurantId }`.
 - **Nunca** confie em `restaurantId`, `role`, ou qualquer campo de identidade
   vindo do `body`/`query` de uma rota autenticada — sempre use `request.user`.
+- **Tokens (desde 2026-06-22)**: `POST /auth/login` retorna um par de tokens,
+  não só um JWT:
+  - `token` — access token JWT, TTL de **10 minutos**
+    (`ACCESS_TOKEN_TTL_SECONDS` em `src/modules/auth/tokenConfig.ts`). É o que
+    `verifyToken` valida em toda rota protegida.
+  - `refreshToken` — token opaco (não-JWT, valor aleatório), TTL de
+    **6 horas** (`REFRESH_TOKEN_TTL_SECONDS`), persistido **com hash**
+    (SHA-256) na coleção `RefreshToken`. Trocado por um novo par via
+    `POST /auth/refresh-token`.
+  - A resposta também inclui `tokenExpiresIn`/`refreshTokenExpiresIn` (em
+    segundos), para o cliente saber quando renovar sem precisar decodificar o JWT.
+  - **Rotação + detecção de reuso**: cada refresh revoga o token apresentado
+    e emite um novo (`replacedByHash` liga os dois). Se um token já revogado
+    for apresentado de novo (sinal de vazamento/replay), **todos** os
+    refresh tokens ativos daquele perfil são revogados — força login de novo
+    em todos os dispositivos. Ver `RefreshTokenService`.
+  - Troca de senha (`UpdateProfileService`) revoga todos os refresh tokens
+    ativos do perfil — uma sessão antiga não deve sobreviver a uma rotação
+    de credencial.
+  - Toda nova feature de auth (logout, "lembrar de mim", etc.) deve usar
+    `issueTokenPair`/`hashRefreshToken` de `src/modules/auth/issueTokens.ts`
+    em vez de assinar JWT ou gerar token aleatório na mão.
 - Hierarquia de papéis: `WAITER < MANAGER < ADMIN`. Regra padrão ao introduzir
   uma nova operação restrita:
   - **WAITER**: leitura do próprio escopo apenas; nunca pode alterar dados de
@@ -150,6 +172,33 @@ entidade "crua" (sem envelope) em nenhuma rota nova.
   `CreateOrderService.execute` para o padrão atual e a ressalva sobre
   `customizationOptions` em §7.
 
+## 6.1) Pegadinha grave: filtrar campo opcional por `null` no Mongo exige escrevê-lo explicitamente
+
+Descoberto em 2026-06-22 implementando refresh tokens, com teste real contra
+um MongoDB (replica set local) — não é teórico, quebrou em produção de teste.
+
+No conector Prisma↔MongoDB, um campo opcional (`DateTime?`, etc.) **omitido**
+num `create()` fica genuinamente **ausente** no documento. Quando depois você
+filtra com `where: { campo: null }` (em `findMany`/`updateMany`/etc.), esse
+filtro **não casa com um campo ausente** — só casa com um campo presente cujo
+valor é explicitamente `null`. Como a leitura via Prisma sempre serializa
+"ausente" para `null` no objeto JS, isso é invisível em qualquer log/print —
+parece que o dado está lá, mas a query não acha.
+
+Sintoma concreto que isso causou: `RefreshTokenService`'s reuse-detection
+(`updateMany({ where: { profileId, revokedAt: null }, ... })`) retornava
+`{ count: 0 }` silenciosamente — nenhum erro, a query só não casava nada — e
+tokens que deveriam ser revogados em cascata continuavam válidos.
+
+**Regra a partir de agora**: todo campo opcional usado depois como filtro
+`campo: null` (ativo/inativo, revogado/não revogado, etc.) deve ser escrito
+**explicitamente como `null`** no `create()` que o originou — nunca omitido.
+Ver `issueRefreshToken` em `src/modules/auth/issueTokens.ts` para o padrão
+correto (`data: { ..., revokedAt: null }`). Antes de introduzir um novo campo
+nullable que sirva de "flag de estado" para uma query futura, teste a query
+`where: { campo: null }` contra um documento criado pelo caminho real do
+código — não confie em como o Prisma exibe o valor de volta.
+
 ## 7) Dívida técnica conhecida (não bloqueante, mas a corrigir quando tocar o módulo)
 
 Itens levantados na auditoria de 2026-06-21 e ainda não resolvidos:
@@ -179,6 +228,17 @@ Itens levantados na auditoria de 2026-06-21 e ainda não resolvidos:
   — o erro só aparece quando alguém chama `/insights/*`. Decisão consciente
   (insights é uma feature opcional), mas documentar aqui para não ser
   "descoberto" de novo.
+- **Sem endpoint de logout / revogação manual**: não há como um cliente
+  invalidar o próprio refresh token sob demanda (ex.: botão "sair em todos os
+  dispositivos"). Hoje a única revogação automática é por rotação (uso
+  normal) ou por troca de senha. Adicionar `POST /auth/logout` que recebe o
+  `refreshToken` e marca `revokedAt` é uma extensão direta de
+  `RefreshTokenService`.
+- **Sem limpeza de `RefreshToken` expirados/revogados**: a coleção cresce
+  indefinidamente — não há job/cron removendo registros com `expiresAt` no
+  passado ou `revokedAt` antigo. Para o volume esperado isso não é urgente,
+  mas vale um job periódico (`deleteMany({ where: { OR: [...] } })`) antes de
+  escalar.
 - **Envio de dados operacionais completos para a OpenAI** em
   `GetOrderInsightsService`/`GetProductInsightsService`, sem minimização —
   avaliar redação/agregação antes de qualquer expansão dessa feature.
@@ -216,3 +276,4 @@ Ao revisar (ou gerar) uma mudança neste backend, confirme:
 - [ ] Nenhum valor monetário é aceito do cliente sem recálculo/validação contra o catálogo?
 - [ ] Toda checagem de papel segue a hierarquia WAITER < MANAGER < ADMIN descrita em §3?
 - [ ] Métodos públicos novos têm um comentário TSDoc curto explicando propósito, autorização esperada e condições de erro?
+- [ ] Todo campo opcional criado para ser filtrado depois como `campo: null` é escrito explicitamente como `null` no `create()` (ver §6.1)? Se possível, testado contra um banco real antes de confiar na query.

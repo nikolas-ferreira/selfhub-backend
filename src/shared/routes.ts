@@ -57,6 +57,11 @@ export async function routes(fastify: FastifyInstance) {
     authController.login
   );
   fastify.post(
+    "/auth/refresh-token",
+    { config: { rateLimit: authRateLimit }, schema: { tags: ["Auth"], summary: "Exchange a refresh token for a new token pair" } },
+    authController.refreshToken
+  );
+  fastify.post(
     "/auth/associate-device",
     { config: { rateLimit: authRateLimit }, schema: { tags: ["Auth"], summary: "Associate device" } },
     authController.associateDevice

@@ -109,6 +109,16 @@ export class UpdateProfileService {
         data: updateData,
       });
 
+      // A password change invalidates every existing session: revoke all
+      // active refresh tokens so a leaked/stale one can't outlive the
+      // credential rotation that was presumably meant to lock it out.
+      if (updateData.password) {
+        await prismaClient.refreshToken.updateMany({
+          where: { profileId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+
       return successResponse(
         {
           id: updatedProfile.id,

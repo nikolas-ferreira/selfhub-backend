@@ -53,6 +53,31 @@ model Profile {
   categoriesEdited Category[] @relation("CategoryLastEditor")
   productsCreated  Product[]  @relation("ProductCreator")
   productsEdited   Product[]  @relation("ProductLastEditor")
+  refreshTokens    RefreshToken[]
+}
+
+/**
+ * Opaque refresh tokens (never JWTs — they carry no claims, just an
+ * unguessable random value) used to obtain a new access token once it
+ * expires. Stored hashed (`tokenHash`), never in plaintext, so a DB read
+ * alone can't be used to impersonate a session.
+ *
+ * Rotation: every successful refresh revokes the token used and issues a
+ * brand new one (`replacedByHash` links them for traceability). Presenting
+ * an already-revoked token again is treated as token theft/reuse and
+ * revokes every active token for that profile — see RefreshTokenService.
+ */
+model RefreshToken {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  tokenHash      String    @unique
+  profileId      String    @db.ObjectId
+  profile        Profile   @relation(fields: [profileId], references: [id])
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  replacedByHash String?
+  createdAt      DateTime  @default(now())
+
+  @@index([profileId])
 }
 
 model Category {

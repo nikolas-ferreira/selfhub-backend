@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { RegisterUserService } from "./RegisterUserService";
 import { LoginUserService } from "./LoginUserService";
 import { AssociateDeviceService } from "./AssociateDeviceService";
+import { RefreshTokenService } from "./RefreshTokenService";
 import { respondInternalError } from "../../shared/utils/respondInternalError";
 
 /** HTTP layer for `/auth/*` routes. Delegates all business rules to the auth services. */
@@ -25,7 +26,7 @@ class AuthController {
     }
   }
 
-  /** `POST /auth/login` — exchanges credentials for a JWT. */
+  /** `POST /auth/login` — exchanges credentials for an access/refresh token pair. */
   async login(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { email, password } = request.body as any;
@@ -38,6 +39,25 @@ class AuthController {
       const statusCode = error.statusCode || 500;
       if (statusCode >= 500) {
         respondInternalError(request, reply, error, "Failed to log in");
+        return;
+      }
+      reply.status(statusCode).send({ statusCode, response: null, message: error.message });
+    }
+  }
+
+  /** `POST /auth/refresh-token` — exchanges a still-valid refresh token for a new access/refresh token pair. */
+  async refreshToken(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { refreshToken } = request.body as any;
+
+      const service = new RefreshTokenService();
+      const result = await service.execute({ refreshToken });
+
+      reply.status(result.statusCode).send(result);
+    } catch (error: any) {
+      const statusCode = error.statusCode || 500;
+      if (statusCode >= 500) {
+        respondInternalError(request, reply, error, "Failed to refresh token");
         return;
       }
       reply.status(statusCode).send({ statusCode, response: null, message: error.message });
