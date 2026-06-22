@@ -23,13 +23,16 @@ const start = async () => {
     // instead of reflecting back any origin (which combined with credentials:true
     // would be a CSRF-adjacent misconfiguration).
     //
-    // This must be a callback, not the literal `false` — @fastify/cors treats
-    // `origin: false` as "disable CORS entirely", which skips registering the
-    // OPTIONS preflight handler altogether and makes every preflight request
-    // 404 at the Fastify routing layer, even for routes that exist. A callback
-    // that resolves to `false` still answers the preflight (just without the
-    // `Access-Control-Allow-Origin` header), which is what actually blocks
-    // the browser from reading the response.
+    // Important operational note: when @fastify/cors resolves an origin as
+    // denied — whether via the literal `origin: false` or a callback that
+    // calls back with `false` — it responds to the OPTIONS preflight with a
+    // bare 404 ("Route OPTIONS:/x not found"), not a proper CORS rejection.
+    // This is by design in this library (see its `corsPreflightEnabled`
+    // handling) and is not a bug here; functionally it still blocks the
+    // browser from completing the cross-origin request, but it means ANY
+    // legitimate frontend origin that is missing from `CORS_ORIGIN` will see
+    // every preflighted request fail as a 404, not just a CORS error. If the
+    // API is unreachable from a real frontend, check this env var first.
     const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim())
 
     await app.register(helmet)

@@ -183,6 +183,27 @@ Itens levantados na auditoria de 2026-06-21 e ainda não resolvidos:
   `GetOrderInsightsService`/`GetProductInsightsService`, sem minimização —
   avaliar redação/agregação antes de qualquer expansão dessa feature.
 
+## 7.1) Pegadinha operacional: CORS_ORIGIN ausente quebra preflight com 404 (não com erro de CORS)
+
+Descoberto em 2026-06-22 ao depurar login quebrado em produção (Render).
+
+Quando `CORS_ORIGIN` não está configurado (ou a origem do frontend não está
+na lista), o `@fastify/cors` responde ao preflight `OPTIONS` com
+**404 `"Route OPTIONS:/x not found"`**, não com um erro de CORS comum. Isso é
+comportamento da própria lib (`req.corsPreflightEnabled` só fica `true`
+quando a origem é aceita; senão a rota wildcard de preflight chama
+`reply.callNotFound()`) — não é um bug deste backend, mas é fácil interpretar
+errado como "rota não existe" quando na verdade é "origem não permitida".
+
+**Se qualquer frontend legítimo começar a falhar no login/qualquer chamada
+com `OPTIONS` 404, confira primeiro se o domínio exato dele (sem `/` no final,
+sem path) está em `CORS_ORIGIN` no ambiente de deploy.** Múltiplos domínios:
+separados por vírgula, sem espaço extra significativo (`origin.trim()` já
+cobre espaço acidental).
+
+Ambientes conhecidos e seus domínios esperados (mantenha esta lista atualizada):
+- Render (produção): `selfhub-backend.onrender.com` — variável `CORS_ORIGIN` deve conter o domínio do painel admin (Lovable). Em 2026-06-22: `https://preview--hub-orange-admin-panel.lovable.app`.
+
 ## 8) Checklist para revisão de PR neste repositório
 
 Ao revisar (ou gerar) uma mudança neste backend, confirme:
