@@ -113,70 +113,65 @@ export class TableLayoutService {
     }
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
-        const existingTables = await tx.table.findMany({
-          where: { restaurantId: loggedUser.restaurantId },
-          select: { id: true },
-        });
-        const existingTableIds = new Set(existingTables.map((t) => t.id));
-        const keptTableIds = new Set(
-          tables.filter((t) => t.id && existingTableIds.has(t.id)).map((t) => t.id as string)
-        );
-        const tableIdsToDelete = [...existingTableIds].filter((id) => !keptTableIds.has(id));
+      const [existingTables, existingWalls] = await Promise.all([
+        prisma.table.findMany({ where: { restaurantId: loggedUser.restaurantId }, select: { id: true } }),
+        prisma.wall.findMany({ where: { restaurantId: loggedUser.restaurantId }, select: { id: true } }),
+      ]);
+      const existingTableIds = new Set(existingTables.map((t) => t.id));
+      const existingWallIds = new Set(existingWalls.map((w) => w.id));
 
-        if (tableIdsToDelete.length) {
-          await tx.table.deleteMany({ where: { id: { in: tableIdsToDelete } } });
-        }
+      const result = await prisma.$transaction(
+        async (tx) => {
+          const keptTableIds = new Set(
+            tables.filter((t) => t.id && existingTableIds.has(t.id)).map((t) => t.id as string)
+          );
+          const tableIdsToDelete = [...existingTableIds].filter((id) => !keptTableIds.has(id));
 
-        for (const table of tables) {
-          const data = {
-            number: table.number,
-            position: table.position ? { x: table.position.x, y: table.position.y } : null,
-            size: table.size ? { width: table.size.width, height: table.size.height } : null,
-          };
+          const keptWallIds = new Set(
+            walls.filter((w) => w.id && existingWallIds.has(w.id)).map((w) => w.id as string)
+          );
+          const wallIdsToDelete = [...existingWallIds].filter((id) => !keptWallIds.has(id));
 
-          if (table.id && existingTableIds.has(table.id)) {
-            await tx.table.update({ where: { id: table.id }, data });
-          } else {
-            await tx.table.create({ data: { ...data, restaurantId: loggedUser.restaurantId } });
-          }
-        }
+          await Promise.all([
+            tableIdsToDelete.length
+              ? tx.table.deleteMany({ where: { id: { in: tableIdsToDelete } } })
+              : Promise.resolve(),
+            wallIdsToDelete.length
+              ? tx.wall.deleteMany({ where: { id: { in: wallIdsToDelete } } })
+              : Promise.resolve(),
+            ...tables.map((table) => {
+              const data = {
+                number: table.number,
+                position: table.position ? { x: table.position.x, y: table.position.y } : null,
+                size: table.size ? { width: table.size.width, height: table.size.height } : null,
+              };
 
-        const existingWalls = await tx.wall.findMany({
-          where: { restaurantId: loggedUser.restaurantId },
-          select: { id: true },
-        });
-        const existingWallIds = new Set(existingWalls.map((w) => w.id));
-        const keptWallIds = new Set(
-          walls.filter((w) => w.id && existingWallIds.has(w.id)).map((w) => w.id as string)
-        );
-        const wallIdsToDelete = [...existingWallIds].filter((id) => !keptWallIds.has(id));
+              return table.id && existingTableIds.has(table.id)
+                ? tx.table.update({ where: { id: table.id }, data })
+                : tx.table.create({ data: { ...data, restaurantId: loggedUser.restaurantId } });
+            }),
+            ...walls.map((wall) => {
+              const data = {
+                start: { x: wall.start.x, y: wall.start.y },
+                end: { x: wall.end.x, y: wall.end.y },
+                thickness: wall.thickness ?? 8,
+              };
 
-        if (wallIdsToDelete.length) {
-          await tx.wall.deleteMany({ where: { id: { in: wallIdsToDelete } } });
-        }
+              return wall.id && existingWallIds.has(wall.id)
+                ? tx.wall.update({ where: { id: wall.id }, data })
+                : tx.wall.create({ data: { ...data, restaurantId: loggedUser.restaurantId } });
+            }),
+          ]);
 
-        for (const wall of walls) {
-          const data = {
-            start: { x: wall.start.x, y: wall.start.y },
-            end: { x: wall.end.x, y: wall.end.y },
-            thickness: wall.thickness ?? 8,
-          };
+          const [finalTables, finalWalls] = await Promise.all([
+            tx.table.findMany({ where: { restaurantId: loggedUser.restaurantId }, orderBy: { number: "asc" } }),
+            tx.wall.findMany({ where: { restaurantId: loggedUser.restaurantId } }),
+          ]);
 
-          if (wall.id && existingWallIds.has(wall.id)) {
-            await tx.wall.update({ where: { id: wall.id }, data });
-          } else {
-            await tx.wall.create({ data: { ...data, restaurantId: loggedUser.restaurantId } });
-          }
-        }
-
-        const [finalTables, finalWalls] = await Promise.all([
-          tx.table.findMany({ where: { restaurantId: loggedUser.restaurantId }, orderBy: { number: "asc" } }),
-          tx.wall.findMany({ where: { restaurantId: loggedUser.restaurantId } }),
-        ]);
-
-        return { tables: finalTables, walls: finalWalls };
-      });
+          return { tables: finalTables, walls: finalWalls };
+        },
+        { timeout: 20000, maxWait: 10000 }
+      );
 
       return {
         statusCode: 200,
