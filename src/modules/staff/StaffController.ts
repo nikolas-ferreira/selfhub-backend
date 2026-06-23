@@ -4,7 +4,7 @@ import { badRequest, unauthorized } from "../../shared/utils/httpResponse";
 
 interface LoggedUser {
   id: string;
-  role: "WAITER" | "MANAGER" | "ADMIN";
+  role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
   restaurantId: string;
 }
 
@@ -38,15 +38,16 @@ export class StaffController {
       return reply.status(401).send(unauthorized());
     }
 
-    const { name, email, password, role } = request.body as {
+    const { name, email, password, role, pin } = request.body as {
       name: string;
       email: string;
       password: string;
-      role: "WAITER" | "MANAGER" | "ADMIN";
+      role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
+      pin?: string;
     };
 
     const service = new StaffService();
-    const result = await service.create({ name, email, password, role, loggedUser: user });
+    const result = await service.create({ name, email, password, role, pin, loggedUser: user });
 
     return reply.status(result.statusCode).send(result);
   }
@@ -60,15 +61,16 @@ export class StaffController {
     }
 
     const { id } = request.params as { id: string };
-    const { name, email, role, isActive } = request.body as {
+    const { name, email, role, isActive, pin } = request.body as {
       name?: string;
       email?: string;
-      role?: "WAITER" | "MANAGER" | "ADMIN";
+      role?: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
       isActive?: boolean;
+      pin?: string;
     };
 
     const service = new StaffService();
-    const result = await service.update({ id, name, email, role, isActive, loggedUser: user });
+    const result = await service.update({ id, name, email, role, isActive, pin, loggedUser: user });
 
     return reply.status(result.statusCode).send(result);
   }
@@ -85,6 +87,26 @@ export class StaffController {
 
     const service = new StaffService();
     const result = await service.remove({ id, loggedUser: user });
+
+    return reply.status(result.statusCode).send(result);
+  }
+
+  /** `POST /staff/verify-pin` */
+  async verifyPin(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+
+    if (!user) {
+      return reply.status(401).send(unauthorized());
+    }
+
+    const { pin } = request.body as { pin?: string };
+
+    if (!pin) {
+      return reply.status(400).send(badRequest("'pin' is required"));
+    }
+
+    const service = new StaffService();
+    const result = await service.verifyPin({ pin, loggedUser: user });
 
     return reply.status(result.statusCode).send(result);
   }

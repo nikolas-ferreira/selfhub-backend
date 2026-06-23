@@ -19,6 +19,11 @@ import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneCont
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 import { TableLayoutController } from "../modules/tableLayout/TableLayoutController"
 import { StaffController } from "../modules/staff/StaffController"
+import { CashSessionController } from "../modules/cashSession/CashSessionController"
+import { BillController } from "../modules/bill/BillController"
+import { PaymentController } from "../modules/payment/PaymentController"
+import { MercadoPagoWebhookController } from "../modules/payment/MercadoPagoWebhookController"
+import { FiscalDocumentController } from "../modules/fiscalDocument/FiscalDocumentController"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -46,6 +51,11 @@ export async function routes(fastify: FastifyInstance) {
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
   const tableLayoutController = new TableLayoutController()
   const staffController = new StaffController()
+  const cashSessionController = new CashSessionController()
+  const billController = new BillController()
+  const paymentController = new PaymentController()
+  const mercadoPagoWebhookController = new MercadoPagoWebhookController()
+  const fiscalDocumentController = new FiscalDocumentController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -271,6 +281,131 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "Remove team member access" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return staffController.remove(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/staff/verify-pin",
+    { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "Verify a manager/admin PIN (discount approval)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return staffController.verifyPin(request, reply)
+    }
+  )
+
+  // Cash session (Caixa shift) - Protected
+  fastify.post(
+    "/cash-sessions",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "Open a cash session" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.open(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/cash-sessions/current",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "Get the caller's open cash session" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.getCurrent(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/cash-sessions/:id/close",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "Close a cash session" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.close(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/cash-sessions/:id/movements",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "Register a sangria/suprimento" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.createMovement(request, reply)
+    }
+  )
+
+  // Bill (Caixa) - Protected
+  fastify.get(
+    "/restaurants/:restaurantId/tables/:tableNumber/bill",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Get or create a table's open bill" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.getOrCreateBill(request, reply)
+    }
+  )
+
+  fastify.patch(
+    "/bills/:id/discount",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Apply a discount to a bill" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.updateDiscount(request, reply)
+    }
+  )
+
+  fastify.patch(
+    "/bills/:id/service-fee",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Set/remove a bill's service fee" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.updateServiceFee(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/bills/:id/close",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Close a fully-paid bill" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.closeBill(request, reply)
+    }
+  )
+
+  // Payments (Caixa) - Protected
+  fastify.post(
+    "/bills/:id/payments",
+    { preHandler: [verifyToken], schema: { tags: ["Payment"], summary: "Register a manual CASH/CARD payment" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return paymentController.registerPayment(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/bills/:id/payments/pix",
+    { preHandler: [verifyToken], schema: { tags: ["Payment"], summary: "Create a dynamic Pix charge via Mercado Pago" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return paymentController.createPixCharge(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/payments/:id",
+    { preHandler: [verifyToken], schema: { tags: ["Payment"], summary: "Get a payment's current status" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return paymentController.getPayment(request, reply)
+    }
+  )
+
+  // Mercado Pago webhook - Public (called only by Mercado Pago, not the front-end)
+  fastify.post(
+    "/webhooks/mercadopago",
+    { schema: { tags: ["Payment"], summary: "Mercado Pago payment webhook" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return mercadoPagoWebhookController.handle(request, reply)
+    }
+  )
+
+  // Fiscal document (NFC-e) - Protected
+  fastify.post(
+    "/bills/:id/fiscal-document",
+    { preHandler: [verifyToken], schema: { tags: ["FiscalDocument"], summary: "Issue an NFC-e for a paid bill" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return fiscalDocumentController.issue(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/bills/:id/fiscal-document",
+    { preHandler: [verifyToken], schema: { tags: ["FiscalDocument"], summary: "Get a bill's fiscal document status" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return fiscalDocumentController.getStatus(request, reply)
     }
   )
 

@@ -4,7 +4,7 @@ import { badRequest, unauthorized } from "../../shared/utils/httpResponse";
 
 interface LoggedUser {
   id: string;
-  role: "WAITER" | "MANAGER" | "ADMIN";
+  role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
   restaurantId: string;
 }
 

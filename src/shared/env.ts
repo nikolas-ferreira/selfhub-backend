@@ -20,4 +20,16 @@ export function validateEnv() {
   if (!process.env.CORS_ORIGIN) {
     console.warn("CORS_ORIGIN is not set — CORS will deny all cross-origin requests by default")
   }
+
+  if (!process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    console.warn("MERCADOPAGO_ACCESS_TOKEN is not set — POST /bills/:id/payments/pix will fail at request time")
+  }
+
+  if (!process.env.PUBLIC_API_BASE_URL) {
+    console.warn("PUBLIC_API_BASE_URL is not set — Mercado Pago won't be told a notification_url, relying on its dashboard config instead")
+  }
+
+  if (!process.env.FOCUS_NFE_TOKEN) {
+    console.warn("FOCUS_NFE_TOKEN is not set — POST /bills/:id/fiscal-document will mark the document as FAILED")
+  }
 }

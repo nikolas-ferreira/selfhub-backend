@@ -2,7 +2,7 @@ import prisma from "../../shared/prisma";
 import bcrypt from "bcryptjs";
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "../../shared/utils/httpResponse";
 
-type Role = "WAITER" | "MANAGER" | "ADMIN";
+type Role = "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
 
 interface LoggedUser {
   id: string;
@@ -10,7 +10,9 @@ interface LoggedUser {
   restaurantId: string;
 }
 
-const ROLES: Role[] = ["WAITER", "MANAGER", "ADMIN"];
+const ROLES: Role[] = ["WAITER", "MANAGER", "ADMIN", "CASHIER"];
+const PIN_APPROVER_ROLES: Role[] = ["MANAGER", "ADMIN"];
+const PIN_FORMAT = /^\d{4}$/;
 
 const formatStaff = (profile: {
   id: string;
@@ -67,12 +69,14 @@ export class StaffService {
     email,
     password,
     role,
+    pin,
     loggedUser,
   }: {
     name: string;
     email: string;
     password: string;
     role: Role;
+    pin?: string;
     loggedUser: LoggedUser;
   }) {
     if (!this.hasAccess(loggedUser.role)) {
@@ -88,11 +92,15 @@ export class StaffService {
     }
 
     if (!ROLES.includes(role)) {
-      return badRequest("'role' must be one of: WAITER, MANAGER, ADMIN");
+      return badRequest("'role' must be one of: WAITER, MANAGER, ADMIN, CASHIER");
     }
 
     if (role === "ADMIN" && loggedUser.role !== "ADMIN") {
       return forbidden("Only ADMIN can create members with role ADMIN");
+    }
+
+    if (pin !== undefined && !PIN_FORMAT.test(pin)) {
+      return badRequest("'pin' must be exactly 4 digits");
     }
 
     const existing = await prisma.profile.findUnique({ where: { email: email.trim() } });
@@ -101,6 +109,7 @@ export class StaffService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPin = pin ? await bcrypt.hash(pin, 10) : undefined;
 
     const profile = await prisma.profile.create({
       data: {
@@ -108,6 +117,7 @@ export class StaffService {
         email: email.trim(),
         password: hashedPassword,
         role,
+        pin: hashedPin,
         restaurantId: loggedUser.restaurantId,
       },
     });
@@ -115,13 +125,14 @@ export class StaffService {
     return { statusCode: 201, response: formatStaff(profile), message: "Team member created successfully" };
   }
 
-  /** `PUT /staff/:id` — partial update of name/email/role/isActive. Never accepts `password`. */
+  /** `PUT /staff/:id` — partial update of name/email/role/isActive/pin. Never accepts `password`. */
   async update({
     id,
     name,
     email,
     role,
     isActive,
+    pin,
     loggedUser,
   }: {
     id: string;
@@ -129,6 +140,7 @@ export class StaffService {
     email?: string;
     role?: Role;
     isActive?: boolean;
+    pin?: string;
     loggedUser: LoggedUser;
   }) {
     if (!this.hasAccess(loggedUser.role)) {
@@ -153,7 +165,11 @@ export class StaffService {
     }
 
     if (role && !ROLES.includes(role)) {
-      return badRequest("'role' must be one of: WAITER, MANAGER, ADMIN");
+      return badRequest("'role' must be one of: WAITER, MANAGER, ADMIN, CASHIER");
+    }
+
+    if (pin !== undefined && !PIN_FORMAT.test(pin)) {
+      return badRequest("'pin' must be exactly 4 digits");
     }
 
     if (email && email.trim() !== target.email) {
@@ -163,6 +179,8 @@ export class StaffService {
       }
     }
 
+    const hashedPin = pin ? await bcrypt.hash(pin, 10) : undefined;
+
     const updated = await prisma.profile.update({
       where: { id },
       data: {
@@ -170,6 +188,7 @@ export class StaffService {
         email: email?.trim(),
         role,
         isActive,
+        pin: hashedPin,
         updatedAt: new Date(),
         updatedByUserId: loggedUser.id,
       },
@@ -206,5 +225,39 @@ export class StaffService {
     });
 
     return { statusCode: 200, response: null, message: "Team member access removed successfully" };
+  }
+
+  /**
+   * `POST /staff/verify-pin` — used by the Caixa to authorize an over-alçada
+   * discount without forcing the cashier to log out. Looks for an active
+   * MANAGER/ADMIN in the caller's restaurant whose PIN hash matches.
+   * Never reveals *why* a PIN was rejected (wrong digits vs. no PIN set vs.
+   * no matching staff) — same principle as not revealing whether an email
+   * exists on "forgot password".
+   */
+  async verifyPin({ pin, loggedUser }: { pin: string; loggedUser: LoggedUser }) {
+    if (!PIN_FORMAT.test(pin || "")) {
+      return unauthorized("Invalid PIN");
+    }
+
+    const candidates = await prisma.profile.findMany({
+      where: {
+        restaurantId: loggedUser.restaurantId,
+        isActive: true,
+        role: { in: PIN_APPROVER_ROLES },
+        pin: { not: null },
+      },
+    });
+
+    for (const candidate of candidates) {
+      if (candidate.pin && (await bcrypt.compare(pin, candidate.pin))) {
+        return {
+          statusCode: 200,
+          response: { approverId: candidate.id, approverName: candidate.name },
+        };
+      }
+    }
+
+    return unauthorized("Invalid PIN");
   }
 }

@@ -70,8 +70,8 @@ export class UpdateProfileService {
 
       // Validação para alteração de role
       if (role && role !== profile.role) {
-        // Define ordem hierárquica
-        const roleOrder = { WAITER: 1, MANAGER: 2, ADMIN: 3 };
+        // Define ordem hierárquica (CASHIER is operational, not hierarchical — same tier as WAITER)
+        const roleOrder = { WAITER: 1, CASHIER: 1, MANAGER: 2, ADMIN: 3 };
         const loggedRoleLevel = roleOrder[loggedUser.role];
         const targetRoleLevel = roleOrder[role];
         const currentRoleLevel = roleOrder[profile.role];

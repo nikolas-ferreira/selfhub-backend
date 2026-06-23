@@ -5,7 +5,7 @@ import { ACCESS_TOKEN_TTL_SECONDS, REFRESH_TOKEN_TTL_SECONDS } from "./tokenConf
 
 export interface ProfileClaims {
   id: string;
-  role: "WAITER" | "MANAGER" | "ADMIN";
+  role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
   restaurantId: string;
 }
 

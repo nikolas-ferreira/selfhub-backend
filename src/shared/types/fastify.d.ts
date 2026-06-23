@@ -5,7 +5,7 @@ declare module "fastify" {
     /** Populated by {@link verifyToken} from the JWT payload. Undefined on public routes. */
     user?: {
       id: string;
-      role: "WAITER" | "MANAGER" | "ADMIN";
+      role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
       restaurantId: string;
     };
   }

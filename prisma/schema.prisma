@@ -19,6 +19,8 @@ model Restaurant {
   deliveryZones DeliveryZone[]
   tables        Table[]
   walls         Wall[]
+  cashSessions  CashSession[]
+  bills         Bill[]
 
   @@map("restaurants")
 }
@@ -37,6 +39,7 @@ enum ProfileRole {
   ADMIN
   MANAGER
   WAITER
+  CASHIER
 }
 
 model Profile {
@@ -53,10 +56,12 @@ model Profile {
   role            ProfileRole @default(WAITER)
   /// `false` blocks login (soft-deleted "team member" — see StaffService). Login itself is rejected for inactive profiles regardless of password correctness.
   isActive        Boolean     @default(true)
+  /// 4-digit PIN (hashed, like `password`), only meaningful for MANAGER/ADMIN. Used to authorize over-alçada discounts at the Caixa without forcing the cashier to log out — see StaffService#verifyPin.
+  pin             String?
 
-  categoriesEdited Category[] @relation("CategoryLastEditor")
-  productsCreated  Product[]  @relation("ProductCreator")
-  productsEdited   Product[]  @relation("ProductLastEditor")
+  categoriesEdited Category[]     @relation("CategoryLastEditor")
+  productsCreated  Product[]      @relation("ProductCreator")
+  productsEdited   Product[]      @relation("ProductLastEditor")
   refreshTokens    RefreshToken[]
 }
 
@@ -65,7 +70,6 @@ model Profile {
  * unguessable random value) used to obtain a new access token once it
  * expires. Stored hashed (`tokenHash`), never in plaintext, so a DB read
  * alone can't be used to impersonate a session.
- *
  * Rotation: every successful refresh revokes the token used and issues a
  * brand new one (`replacedByHash` links them for traceability). Presenting
  * an already-revoked token again is treated as token theft/reuse and
@@ -179,8 +183,13 @@ model Order {
   restaurantId          String        @db.ObjectId
   restaurant            Restaurant    @relation(fields: [restaurantId], references: [id])
   items                 OrderItem[]
+  /// Set once this order has been aggregated into a Caixa `Bill` (see BillService#getOrCreateBill).
+  /// Plain scalar, no `@relation` — same loose-coupling convention as `tableNumber`/`Table.number`.
+  /// Lets the bill-aggregation query cheaply exclude orders that already belong to a (open or closed) Bill.
+  billId                String?       @db.ObjectId
 
   @@index([origin])
+  @@index([restaurantId, tableNumber, billId])
 }
 
 model DeliveryZone {
@@ -277,4 +286,173 @@ model Wall {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Caixa (frente de loja) — see selfhub-admin/docs/caixa-backend-spec.md
+// ---------------------------------------------------------------------------
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/**
+ * A cashier's shift. Only one `OPEN` session is allowed per `Staff` at a
+ * time (enforced in CashSessionService, not at the DB level). Every `Bill`
+ * closed during the shift, plus every sangria/suprimento (`CashMovement`),
+ * is linked back to the session that was open when it happened.
+ */
+model CashSession {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId   String            @db.ObjectId
+  restaurant     Restaurant        @relation(fields: [restaurantId], references: [id])
+  cashierId      String            @db.ObjectId
+  /// Denormalized for direct display on the front — see spec.
+  cashierName    String
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  openingAmount  Float
+  closingAmount  Float?
+  /// openingAmount + cash sales - withdrawals + supplies, computed on close.
+  expectedAmount Float?
+  /// closingAmount - expectedAmount, computed on close.
+  difference     Float?
+  status         CashSessionStatus @default(OPEN)
+  movements      CashMovement[]
+  bills          Bill[]
+
+  @@index([restaurantId, cashierId, status])
+}
+
+enum CashMovementType {
+  WITHDRAWAL
+  SUPPLY
+}
+
+/**
+ * A sangria (`WITHDRAWAL`) or suprimento (`SUPPLY`) registered during a `CashSession`.
+ */
+model CashMovement {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  cashSessionId String           @db.ObjectId
+  cashSession   CashSession      @relation(fields: [cashSessionId], references: [id])
+  type          CashMovementType
+  amount        Float
+  reason        String
+  createdAt     DateTime         @default(now())
+  createdById   String           @db.ObjectId
+
+  @@index([cashSessionId])
+}
+
+enum BillStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
+/**
+ * One aggregated line of a `Bill`, summed across every `Order`/`OrderItem` for the same product.
+ */
+type BillItem {
+  productId   String @db.ObjectId
+  productName String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+}
+
+/**
+ * The aggregated tab for a table: sums every open `Order` (see
+ * `Order.billId`) into `items`/`subtotal`, then applies discount/service-fee
+ * on top to reach `total`. Matched by `(restaurantId, tableNumber)`, not by
+ * `Table.id` — see "Limitação conhecida" in the spec.
+ */
+model Bill {
+  id                   String          @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId         String          @db.ObjectId
+  restaurant           Restaurant      @relation(fields: [restaurantId], references: [id])
+  tableNumber          Int
+  cashSessionId        String          @db.ObjectId
+  cashSession          CashSession     @relation(fields: [cashSessionId], references: [id])
+  orderIds             String[]        @db.ObjectId
+  items                BillItem[]
+  subtotal             Float
+  discountAmount       Float           @default(0)
+  discountPercent      Float?
+  /// `Staff.id` of the MANAGER/ADMIN who authorized a >10% discount via PIN. Null below that alçada.
+  discountApprovedById String?         @db.ObjectId
+  serviceFeeAmount     Float           @default(0)
+  serviceFeePercent    Float?
+  total                Float
+  status               BillStatus      @default(OPEN)
+  closedAt             DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  payments             Payment[]
+  fiscalDocument       FiscalDocument?
+
+  @@index([restaurantId, tableNumber, status])
+}
+
+/**
+ * `CASH`/`CARD` are confirmed manually by the cashier (no TEF). Only `PIX` starts `PENDING` until the Mercado Pago webhook confirms it.
+ */
+enum CashierPaymentMethod {
+  CASH
+  CARD
+  PIX
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+model Payment {
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  billId       String               @db.ObjectId
+  bill         Bill                 @relation(fields: [billId], references: [id])
+  method       CashierPaymentMethod
+  amount       Float
+  status       PaymentStatus        @default(PENDING)
+  /// Mercado Pago payment id — also the idempotency key for the webhook (PIX only).
+  pixTxId      String?
+  /// Base64 PNG, same as Mercado Pago's `qr_code_base64` (PIX only).
+  pixQrCode    String?
+  /// EMV copia-e-cola string, same as Mercado Pago's `qr_code` (PIX only).
+  pixCopyPaste String?
+  pixPaidAt    DateTime?
+  createdAt    DateTime             @default(now())
+  createdById  String               @db.ObjectId
+
+  @@index([billId])
+  @@index([pixTxId])
+}
+
+enum FiscalDocumentStatus {
+  PENDING
+  ISSUED
+  FAILED
+}
+
+/**
+ * NFC-e issuance for a fully-paid `Bill`, via a third-party provider (see `providers/focusNfe.ts`).
+ */
+model FiscalDocument {
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  billId            String               @unique @db.ObjectId
+  bill              Bill                 @relation(fields: [billId], references: [id])
+  status            FiscalDocumentStatus @default(PENDING)
+  providerInvoiceId String?
+  danfeUrl          String?
+  customerEmail     String?
+  customerPhone     String?
+  customerCpf       String?
+  issuedAt          DateTime?
+  error             String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 }

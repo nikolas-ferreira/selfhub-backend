@@ -24,7 +24,7 @@ export async function verifyToken(request: FastifyRequest, reply: FastifyReply) 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: string;
-      role: "WAITER" | "MANAGER" | "ADMIN";
+      role: "WAITER" | "MANAGER" | "ADMIN" | "CASHIER";
       restaurantId: string;
     };
 
