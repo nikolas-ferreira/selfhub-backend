@@ -75,4 +75,36 @@ export class CashSessionController {
     });
     return reply.status(result.statusCode).send(result);
   }
+
+  /** `GET /cash-sessions` */
+  async list(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+    if (!user) return reply.status(401).send(unauthorized());
+
+    const { restaurantId, cashierId, status, dateFrom, dateTo } = request.query as {
+      restaurantId?: string;
+      cashierId?: string;
+      status?: "OPEN" | "CLOSED";
+      dateFrom?: string;
+      dateTo?: string;
+    };
+
+    if (!restaurantId) {
+      return reply.status(400).send(badRequest("'restaurantId' query param is required"));
+    }
+
+    const result = await this.service.list({ restaurantId, cashierId, status, dateFrom, dateTo, loggedUser: user });
+    return reply.status(result.statusCode).send(result);
+  }
+
+  /** `GET /cash-sessions/:id` */
+  async getDetail(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+    if (!user) return reply.status(401).send(unauthorized());
+
+    const { id } = request.params as { id: string };
+
+    const result = await this.service.getDetail({ id, loggedUser: user });
+    return reply.status(result.statusCode).send(result);
+  }
 }

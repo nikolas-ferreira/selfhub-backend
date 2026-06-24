@@ -314,11 +314,14 @@ model CashSession {
   closedAt       DateTime?
   openingAmount  Float
   closingAmount  Float?
-  /// openingAmount + cash sales - withdrawals + supplies, computed on close.
+  /// openingAmount + CASH sales - withdrawals + supplies, computed on close. Card/Pix never touch the physical drawer, so only CASH counts.
   expectedAmount Float?
   /// closingAmount - expectedAmount, computed on close.
   difference     Float?
   status         CashSessionStatus @default(OPEN)
+  /// Who actually closed the register — usually `cashierId`, but kept separate to cover a MANAGER/ADMIN closing someone else's shift.
+  closedById     String?           @db.ObjectId
+  closedByName   String?
   movements      CashMovement[]
   bills          Bill[]
 
@@ -342,6 +345,8 @@ model CashMovement {
   reason        String
   createdAt     DateTime         @default(now())
   createdById   String           @db.ObjectId
+  /// Denormalized name of `createdById`, same convention as `CashSession.cashierName`.
+  createdByName String
 
   @@index([cashSessionId])
 }
@@ -412,21 +417,23 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id           String               @id @default(auto()) @map("_id") @db.ObjectId
-  billId       String               @db.ObjectId
-  bill         Bill                 @relation(fields: [billId], references: [id])
-  method       CashierPaymentMethod
-  amount       Float
-  status       PaymentStatus        @default(PENDING)
+  id            String               @id @default(auto()) @map("_id") @db.ObjectId
+  billId        String               @db.ObjectId
+  bill          Bill                 @relation(fields: [billId], references: [id])
+  method        CashierPaymentMethod
+  amount        Float
+  status        PaymentStatus        @default(PENDING)
   /// Mercado Pago payment id — also the idempotency key for the webhook (PIX only).
-  pixTxId      String?
+  pixTxId       String?
   /// Base64 PNG, same as Mercado Pago's `qr_code_base64` (PIX only).
-  pixQrCode    String?
+  pixQrCode     String?
   /// EMV copia-e-cola string, same as Mercado Pago's `qr_code` (PIX only).
-  pixCopyPaste String?
-  pixPaidAt    DateTime?
-  createdAt    DateTime             @default(now())
-  createdById  String               @db.ObjectId
+  pixCopyPaste  String?
+  pixPaidAt     DateTime?
+  createdAt     DateTime             @default(now())
+  createdById   String               @db.ObjectId
+  /// Denormalized name of `createdById`, same convention as `CashSession.cashierName`.
+  createdByName String
 
   @@index([billId])
   @@index([pixTxId])

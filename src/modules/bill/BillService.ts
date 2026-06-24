@@ -20,7 +20,7 @@ const FREE_DISCOUNT_THRESHOLD_PERCENT = 10;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-const formatBill = (
+export const formatBill = (
   bill: {
     id: string;
     restaurantId: string;

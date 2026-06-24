@@ -26,6 +26,7 @@ export const formatPayment = (payment: {
   pixPaidAt: Date | null;
   createdAt: Date;
   createdById: string;
+  createdByName: string;
 }) => ({
   id: payment.id,
   billId: payment.billId,
@@ -38,6 +39,7 @@ export const formatPayment = (payment: {
   pixPaidAt: payment.pixPaidAt,
   createdAt: payment.createdAt,
   createdById: payment.createdById,
+  createdByName: payment.createdByName,
 });
 
 /** Payment registration/lookup for a `Bill` — see caixa-backend-spec.md §"Pagamentos". */
@@ -75,8 +77,10 @@ export class PaymentService {
       return badRequest(`Cannot register a payment on a ${bill.status} bill`);
     }
 
+    const creator = await prisma.profile.findUnique({ where: { id: loggedUser.id } });
+
     const payment = await prisma.payment.create({
-      data: { billId, method, amount, status: "CONFIRMED", createdById: loggedUser.id },
+      data: { billId, method, amount, status: "CONFIRMED", createdById: loggedUser.id, createdByName: creator?.name ?? "" },
     });
 
     return { statusCode: 201, response: formatPayment(payment), message: "Payment registered successfully" };
@@ -101,8 +105,17 @@ export class PaymentService {
       return badRequest(`Cannot register a payment on a ${bill.status} bill`);
     }
 
+    const creator = await prisma.profile.findUnique({ where: { id: loggedUser.id } });
+
     const payment = await prisma.payment.create({
-      data: { billId, method: "PIX", amount, status: "PENDING", createdById: loggedUser.id },
+      data: {
+        billId,
+        method: "PIX",
+        amount,
+        status: "PENDING",
+        createdById: loggedUser.id,
+        createdByName: creator?.name ?? "",
+      },
     });
 
     try {

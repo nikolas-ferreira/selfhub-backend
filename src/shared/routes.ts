@@ -325,6 +325,22 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.get(
+    "/cash-sessions",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "List cash sessions (history, MANAGER/ADMIN only)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.list(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/cash-sessions/:id",
+    { preHandler: [verifyToken], schema: { tags: ["CashSession"], summary: "Cash session detail (history, MANAGER/ADMIN only)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return cashSessionController.getDetail(request, reply)
+    }
+  )
+
   // Bill (Caixa) - Protected
   fastify.get(
     "/restaurants/:restaurantId/tables/:tableNumber/bill",
