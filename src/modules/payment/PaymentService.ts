@@ -26,7 +26,7 @@ export const formatPayment = (payment: {
   pixPaidAt: Date | null;
   createdAt: Date;
   createdById: string;
-  createdByName: string;
+  createdByName: string | null;
 }) => ({
   id: payment.id,
   billId: payment.billId,
@@ -39,7 +39,8 @@ export const formatPayment = (payment: {
   pixPaidAt: payment.pixPaidAt,
   createdAt: payment.createdAt,
   createdById: payment.createdById,
-  createdByName: payment.createdByName,
+  // Payments registered before this field existed have it absent in Mongo.
+  createdByName: payment.createdByName ?? "",
 });
 
 /** Payment registration/lookup for a `Bill` — see caixa-backend-spec.md §"Pagamentos". */

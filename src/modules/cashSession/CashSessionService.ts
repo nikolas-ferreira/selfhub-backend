@@ -25,7 +25,7 @@ const formatMovement = (movement: {
   reason: string;
   createdAt: Date;
   createdById: string;
-  createdByName: string;
+  createdByName: string | null;
 }) => ({
   id: movement.id,
   cashSessionId: movement.cashSessionId,
@@ -34,7 +34,8 @@ const formatMovement = (movement: {
   reason: movement.reason,
   createdAt: movement.createdAt,
   createdById: movement.createdById,
-  createdByName: movement.createdByName,
+  // Movements registered before this field existed have it absent in Mongo.
+  createdByName: movement.createdByName ?? "",
 });
 
 /** Caixa shift lifecycle: open/current/close/history + sangria/suprimento — see caixa-backend-spec.md §"Sessão de caixa". */

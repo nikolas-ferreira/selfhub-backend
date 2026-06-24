@@ -346,7 +346,9 @@ model CashMovement {
   createdAt     DateTime         @default(now())
   createdById   String           @db.ObjectId
   /// Denormalized name of `createdById`, same convention as `CashSession.cashierName`.
-  createdByName String
+  /// Optional because rows created before this field existed have it absent
+  /// in Mongo (no migration backfilled them) — see CashSessionService's formatter.
+  createdByName String?
 
   @@index([cashSessionId])
 }
@@ -433,7 +435,9 @@ model Payment {
   createdAt     DateTime             @default(now())
   createdById   String               @db.ObjectId
   /// Denormalized name of `createdById`, same convention as `CashSession.cashierName`.
-  createdByName String
+  /// Optional because rows created before this field existed have it absent
+  /// in Mongo (no migration backfilled them) — see PaymentService's formatter.
+  createdByName String?
 
   @@index([billId])
   @@index([pixTxId])
