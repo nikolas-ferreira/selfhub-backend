@@ -24,8 +24,9 @@ export const formatBill = (
   bill: {
     id: string;
     restaurantId: string;
-    comandaId: string;
-    comandaNumber: number;
+    /** Absent on Bills created before the comanda migration — see schema.prisma's doc comment. */
+    comandaId: string | null;
+    comandaNumber: number | null;
     tableNumber: number;
     cashSessionId: string;
     orderIds: string[];
@@ -364,7 +365,10 @@ export class BillService {
         await tx.order.updateMany({ where: { id: { in: bill.orderIds } }, data: { status: "FINISHED", finishedAt: new Date() } });
       }
 
-      await tx.comanda.update({ where: { id: bill.comandaId }, data: { status: "CLOSED", closedAt: new Date() } });
+      // Absent on a handful of Bills predating the comanda migration — see schema.prisma's doc comment.
+      if (bill.comandaId) {
+        await tx.comanda.update({ where: { id: bill.comandaId }, data: { status: "CLOSED", closedAt: new Date() } });
+      }
 
       return closed;
     });

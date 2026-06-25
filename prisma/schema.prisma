@@ -427,10 +427,14 @@ model Bill {
   id                   String          @id @default(auto()) @map("_id") @db.ObjectId
   restaurantId         String          @db.ObjectId
   restaurant           Restaurant      @relation(fields: [restaurantId], references: [id])
-  comandaId            String          @db.ObjectId
-  comanda              Comanda         @relation(fields: [comandaId], references: [id])
-  /// Denormalized from `Comanda.number` at creation time — what the cashier typed in.
-  comandaNumber        Int
+  /// Optional only because Bills created before the comanda migration have it absent in Mongo
+  /// (no migration backfilled them — there's no comanda to backfill from). Every Bill created
+  /// by BillService#getOrCreateBill going forward always has this set.
+  comandaId            String?         @db.ObjectId
+  comanda              Comanda?        @relation(fields: [comandaId], references: [id])
+  /// Denormalized from `Comanda.number` at creation time — what the cashier typed in. Same
+  /// "absent on pre-migration rows" caveat as `comandaId`.
+  comandaNumber        Int?
   /// Denormalized from `Comanda.tableNumber` — display only, not used to match orders anymore.
   tableNumber          Int
   cashSessionId        String          @db.ObjectId
