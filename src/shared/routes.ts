@@ -24,6 +24,7 @@ import { BillController } from "../modules/bill/BillController"
 import { PaymentController } from "../modules/payment/PaymentController"
 import { MercadoPagoWebhookController } from "../modules/payment/MercadoPagoWebhookController"
 import { FiscalDocumentController } from "../modules/fiscalDocument/FiscalDocumentController"
+import { ComandaController } from "../modules/comanda/ComandaController"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -56,6 +57,7 @@ export async function routes(fastify: FastifyInstance) {
   const paymentController = new PaymentController()
   const mercadoPagoWebhookController = new MercadoPagoWebhookController()
   const fiscalDocumentController = new FiscalDocumentController()
+  const comandaController = new ComandaController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -341,10 +343,35 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  // Comandas - Protected
+  fastify.post(
+    "/comandas",
+    { preHandler: [verifyToken], schema: { tags: ["Comanda"], summary: "Open a comanda" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return comandaController.open(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/comandas/by-number/:number",
+    { preHandler: [verifyToken], schema: { tags: ["Comanda"], summary: "Find the open comanda with this number" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return comandaController.findOpenByNumber(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/tables/:tableNumber/comandas",
+    { preHandler: [verifyToken], schema: { tags: ["Comanda"], summary: "List comandas open at a table" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return comandaController.listByTable(request, reply)
+    }
+  )
+
   // Bill (Caixa) - Protected
   fastify.get(
-    "/restaurants/:restaurantId/tables/:tableNumber/bill",
-    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Get or create a table's open bill" } },
+    "/restaurants/:restaurantId/comandas/:comandaNumber/bill",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Get or create a comanda's open bill" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return billController.getOrCreateBill(request, reply)
     }

@@ -21,6 +21,7 @@ model Restaurant {
   walls         Wall[]
   cashSessions  CashSession[]
   bills         Bill[]
+  comandas      Comanda[]
 
   @@map("restaurants")
 }
@@ -187,9 +188,17 @@ model Order {
   /// Plain scalar, no `@relation` — same loose-coupling convention as `tableNumber`/`Table.number`.
   /// Lets the bill-aggregation query cheaply exclude orders that already belong to a (open or closed) Bill.
   billId                String?       @db.ObjectId
+  /// The comanda this order was placed against — required for `origin: LOCAL` orders created after the
+  /// comanda migration (see selfhub-admin/docs/comandas-backend-spec.md). Null for DELIVERY/PICKUP and for
+  /// LOCAL orders created before this field existed (not backfilled).
+  comandaId             String?       @db.ObjectId
+  /// Denormalized from `Comanda.number` at creation time, same convention as the other denormalized
+  /// "*Name"/"*Number" fields in this schema — lets the front display it without an extra lookup.
+  comandaNumber         Int?
 
   @@index([origin])
   @@index([restaurantId, tableNumber, billId])
+  @@index([restaurantId, comandaId])
 }
 
 model DeliveryZone {
@@ -289,6 +298,42 @@ model Wall {
 }
 
 // ---------------------------------------------------------------------------
+// Comandas — see selfhub-admin/docs/comandas-backend-spec.md
+// ---------------------------------------------------------------------------
+
+enum ComandaStatus {
+  OPEN
+  CLOSED
+}
+
+/**
+ * A physical "comanda" card handed to a guest. `number` is whatever's
+ * printed on the card — there's no pre-registered range or auto-increment.
+ * It's only unique among comandas currently `OPEN` in the restaurant: once
+ * `CLOSED`, the number is recycled for a future guest, so uniqueness is
+ * enforced in ComandaService, not via a DB constraint (a `@@unique` would
+ * wrongly block reuse). A table can have any number of `OPEN` comandas at
+ * once — there's no 1:1 table/comanda relationship.
+ */
+model Comanda {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId String        @db.ObjectId
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  number       Int
+  tableNumber  Int
+  status       ComandaStatus @default(OPEN)
+  openedAt     DateTime      @default(now())
+  closedAt     DateTime?
+  openedById   String        @db.ObjectId
+  /// Denormalized name of `openedById`, same convention as `CashSession.cashierName`.
+  openedByName String
+  bills        Bill[]
+
+  @@index([restaurantId, number, status])
+  @@index([restaurantId, tableNumber, status])
+}
+
+// ---------------------------------------------------------------------------
 // Caixa (frente de loja) — see selfhub-admin/docs/caixa-backend-spec.md
 // ---------------------------------------------------------------------------
 
@@ -371,15 +416,22 @@ type BillItem {
 }
 
 /**
- * The aggregated tab for a table: sums every open `Order` (see
- * `Order.billId`) into `items`/`subtotal`, then applies discount/service-fee
- * on top to reach `total`. Matched by `(restaurantId, tableNumber)`, not by
- * `Table.id` — see "Limitação conhecida" in the spec.
+ * The aggregated tab for a single comanda: sums every open `Order` placed
+ * against that comanda (see `Order.comandaId`) into `items`/`subtotal`, then
+ * applies discount/service-fee on top to reach `total`. Matched by
+ * `comandaId` — **not** by table, since a table can have several comandas
+ * open at once (see selfhub-admin/docs/comandas-backend-spec.md). `tableNumber`
+ * is kept denormalized purely for display ("Comanda 53 — Mesa 12").
  */
 model Bill {
   id                   String          @id @default(auto()) @map("_id") @db.ObjectId
   restaurantId         String          @db.ObjectId
   restaurant           Restaurant      @relation(fields: [restaurantId], references: [id])
+  comandaId            String          @db.ObjectId
+  comanda              Comanda         @relation(fields: [comandaId], references: [id])
+  /// Denormalized from `Comanda.number` at creation time — what the cashier typed in.
+  comandaNumber        Int
+  /// Denormalized from `Comanda.tableNumber` — display only, not used to match orders anymore.
   tableNumber          Int
   cashSessionId        String          @db.ObjectId
   cashSession          CashSession     @relation(fields: [cashSessionId], references: [id])
@@ -400,7 +452,7 @@ model Bill {
   payments             Payment[]
   fiscalDocument       FiscalDocument?
 
-  @@index([restaurantId, tableNumber, status])
+  @@index([restaurantId, comandaId, status])
 }
 
 /**

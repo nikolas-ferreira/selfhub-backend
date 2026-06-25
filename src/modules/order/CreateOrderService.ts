@@ -19,7 +19,10 @@ interface CreateOrderItem {
 
 export interface CreateOrderRequest {
   orderNumber: number;
+  /** Ignored for LOCAL orders when `comandaId` is given — derived server-side from the comanda instead. */
   tableNumber: number;
+  /** Required when `origin` is (or defaults to) LOCAL — see comandas-backend-spec.md. Absent for DELIVERY/PICKUP. */
+  comandaId?: string;
   waiterNumber: number;
   paymentMethod: "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "MONEY";
   totalValue: number;
@@ -100,6 +103,33 @@ export class CreateOrderService {
     let deliveryZoneId: string | null = null;
     let address: Prisma.InputJsonValue | null = null;
 
+    // LOCAL orders are placed against a comanda, not a freely-typed table
+    // number — the table is derived from the comanda, never trusted from the
+    // client. See selfhub-admin/docs/comandas-backend-spec.md.
+    let tableNumber = data.tableNumber;
+    let comandaId: string | null = null;
+    let comandaNumber: number | null = null;
+
+    if (origin === "LOCAL") {
+      if (!data.comandaId || !/^[0-9a-fA-F]{24}$/.test(data.comandaId)) {
+        throw new Error("comandaId is required for LOCAL orders");
+      }
+
+      const comanda = await prisma.comanda.findFirst({
+        where: { id: data.comandaId, restaurantId: data.restaurantId, status: "OPEN" },
+      });
+
+      if (!comanda) {
+        throw new Error("Comanda not found, not open, or doesn't belong to this restaurant");
+      }
+
+      comandaId = comanda.id;
+      comandaNumber = comanda.number;
+      tableNumber = comanda.tableNumber;
+    } else if (data.comandaId) {
+      throw new Error("comandaId must be null when origin is not LOCAL");
+    }
+
     if (origin === "DELIVERY") {
       if (!data.deliveryZoneId) {
         throw new Error("deliveryZoneId is required for delivery orders");
@@ -137,7 +167,9 @@ export class CreateOrderService {
         status: "CREATED",
         origin,
         orderedAt: new Date(),
-        tableNumber: String(data.tableNumber),
+        tableNumber: String(tableNumber),
+        comandaId,
+        comandaNumber,
         waiterNumber: String(data.waiterNumber),
         totalValue,
         paymentMethod: data.paymentMethod,

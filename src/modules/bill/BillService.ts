@@ -24,6 +24,8 @@ export const formatBill = (
   bill: {
     id: string;
     restaurantId: string;
+    comandaId: string;
+    comandaNumber: number;
     tableNumber: number;
     cashSessionId: string;
     orderIds: string[];
@@ -42,6 +44,8 @@ export const formatBill = (
 ) => ({
   id: bill.id,
   restaurantId: bill.restaurantId,
+  comandaId: bill.comandaId,
+  comandaNumber: bill.comandaNumber,
   tableNumber: bill.tableNumber,
   cashSessionId: bill.cashSessionId,
   orderIds: bill.orderIds,
@@ -70,17 +74,19 @@ export const formatBill = (
  */
 export class BillService {
   /**
-   * `GET /restaurants/:restaurantId/tables/:tableNumber/bill` — get-or-create.
-   * Re-aggregates on every call so newly placed orders for the same table
-   * visit show up without the cashier needing to do anything.
+   * `GET /restaurants/:restaurantId/comandas/:comandaNumber/bill` — get-or-create.
+   * Re-aggregates on every call so newly placed orders for the same comanda
+   * show up without the cashier needing to do anything. Aggregates by
+   * `comandaId`, not by table — a table can have several open comandas at
+   * once, each with its own bill (see comandas-backend-spec.md).
    */
   async getOrCreateBill({
     restaurantId,
-    tableNumber,
+    comandaNumber,
     loggedUser,
   }: {
     restaurantId: string;
-    tableNumber: number;
+    comandaNumber: number;
     loggedUser: LoggedUser;
   }) {
     if (!CAN_OPERATE_BILL.includes(loggedUser.role)) {
@@ -92,19 +98,26 @@ export class BillService {
     });
 
     if (!session) {
-      return badRequest("You need an open cash session to access a table bill");
+      return badRequest("You need an open cash session to access a comanda's bill");
     }
 
-    let bill = await prisma.bill.findFirst({ where: { restaurantId, tableNumber, status: "OPEN" } });
+    const comanda = await prisma.comanda.findFirst({
+      where: { restaurantId, number: comandaNumber, status: "OPEN" },
+    });
+
+    if (!comanda) {
+      return notFound("No open comanda with this number");
+    }
+
+    let bill = await prisma.bill.findFirst({ where: { restaurantId, comandaId: comanda.id, status: "OPEN" } });
 
     // Only orders that don't yet belong to any bill (new ones), or that already
     // belong to this same open bill (re-aggregation), are eligible — see
-    // spec §"Limitação conhecida" and Order.billId's doc comment.
+    // Order.billId's doc comment. Matched by comandaId, not table/origin.
     const orders = await prisma.order.findMany({
       where: {
         restaurantId,
-        tableNumber: String(tableNumber),
-        origin: "LOCAL",
+        comandaId: comanda.id,
         status: { in: AGGREGATABLE_ORDER_STATUSES },
         OR: bill ? [{ billId: null }, { billId: bill.id }] : [{ billId: null }],
       },
@@ -170,7 +183,9 @@ export class BillService {
         const created = await tx.bill.create({
           data: {
             restaurantId,
-            tableNumber,
+            comandaId: comanda.id,
+            comandaNumber: comanda.number,
+            tableNumber: comanda.tableNumber,
             cashSessionId: session.id,
             orderIds,
             items,
@@ -313,7 +328,14 @@ export class BillService {
     return { statusCode: 200, response: formatBill(updated, payments), message: "Service fee updated successfully" };
   }
 
-  /** `POST /bills/:id/close` — only when `sum(payments.CONFIRMED) >= total`. Frees the table and finishes every aggregated order. */
+  /**
+   * `POST /bills/:id/close` — only when `sum(payments.CONFIRMED) >= total`.
+   * Finishes every aggregated order and closes the comanda. Does **not**
+   * touch the table's status: another comanda from the same table may still
+   * be open, so freeing the table is the front's job (it checks
+   * `GET /tables/:tableNumber/comandas?status=OPEN` first) — see
+   * comandas-backend-spec.md.
+   */
   async closeBill({ billId, loggedUser }: { billId: string; loggedUser: LoggedUser }) {
     if (!CAN_OPERATE_BILL.includes(loggedUser.role)) {
       return forbidden("Only CASHIER, MANAGER or ADMIN can close a bill");
@@ -342,7 +364,7 @@ export class BillService {
         await tx.order.updateMany({ where: { id: { in: bill.orderIds } }, data: { status: "FINISHED", finishedAt: new Date() } });
       }
 
-      await tx.table.updateMany({ where: { restaurantId: bill.restaurantId, number: bill.tableNumber }, data: { status: "free" } });
+      await tx.comanda.update({ where: { id: bill.comandaId }, data: { status: "CLOSED", closedAt: new Date() } });
 
       return closed;
     });

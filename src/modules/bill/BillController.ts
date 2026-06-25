@@ -8,27 +8,27 @@ interface LoggedUser {
   restaurantId: string;
 }
 
-/** HTTP layer for `/restaurants/:restaurantId/tables/:tableNumber/bill` and `/bills/:id/*`. */
+/** HTTP layer for `/restaurants/:restaurantId/comandas/:comandaNumber/bill` and `/bills/:id/*`. */
 export class BillController {
   private service = new BillService();
 
-  /** `GET /restaurants/:restaurantId/tables/:tableNumber/bill` */
+  /** `GET /restaurants/:restaurantId/comandas/:comandaNumber/bill` */
   async getOrCreateBill(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser;
     if (!user) return reply.status(401).send(unauthorized());
 
-    const { restaurantId, tableNumber } = request.params as { restaurantId: string; tableNumber: string };
+    const { restaurantId, comandaNumber } = request.params as { restaurantId: string; comandaNumber: string };
 
     if (restaurantId !== user.restaurantId) {
       return reply.status(401).send(unauthorized("You don't have access to this restaurant"));
     }
 
-    const parsedTableNumber = Number(tableNumber);
-    if (!Number.isInteger(parsedTableNumber)) {
-      return reply.status(400).send(badRequest("'tableNumber' must be an integer"));
+    const parsedComandaNumber = Number(comandaNumber);
+    if (!Number.isInteger(parsedComandaNumber)) {
+      return reply.status(400).send(badRequest("'comandaNumber' must be an integer"));
     }
 
-    const result = await this.service.getOrCreateBill({ restaurantId, tableNumber: parsedTableNumber, loggedUser: user });
+    const result = await this.service.getOrCreateBill({ restaurantId, comandaNumber: parsedComandaNumber, loggedUser: user });
     return reply.status(result.statusCode).send(result);
   }
 

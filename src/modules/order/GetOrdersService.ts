@@ -32,6 +32,8 @@ export class GetOrdersService {
         finishedAt: true,
         canceledAt: true,
         tableNumber: true,
+        comandaId: true,
+        comandaNumber: true,
         waiterNumber: true,
         address: true,
         deliveryFee: true,
