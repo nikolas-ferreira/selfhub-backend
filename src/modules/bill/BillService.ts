@@ -135,6 +135,15 @@ export class BillService {
       include: { items: { include: { product: true, customizations: true } } },
     });
 
+    console.log("[BillService] getOrCreateBill debug", {
+      restaurantId,
+      comandaId: comanda.id,
+      comandaTableNumber: comanda.tableNumber,
+      existingBillId: bill?.id ?? null,
+      ordersFound: orders.length,
+      orderSample: orders.map((o) => ({ id: o.id, comandaId: o.comandaId, status: o.status, billId: o.billId, tableNumber: o.tableNumber })),
+    });
+
     const itemsByProduct = new Map<string, { productId: string; productName: string; quantity: number; total: number }>();
     for (const order of orders) {
       for (const orderItem of order.items) {
