@@ -9,6 +9,7 @@ import swaggerUi from '@fastify/swagger-ui'
 import { routes } from './shared/routes'
 import { errorHandler } from './shared/middlewares/errorHandler'
 import { validateEnv } from './shared/env'
+import { isAllowedDomainOrigin } from './shared/restaurantDomains'
 
 // A UUID per request (instead of Fastify's default incrementing counter) so
 // `request.id` stays unique across restarts/instances and can be used as a
@@ -51,6 +52,12 @@ const start = async () => {
     // every preflighted request fail as a 404, not just a CORS error. If the
     // API is unreachable from a real frontend, check this env var first.
     const allowedOrigins = process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim())
+    const isProduction = process.env.NODE_ENV === 'production'
+    // Any `http(s)://localhost:<port>` or `127.0.0.1:<port>` origin, regardless
+    // of port — covers selfhub-admin (8080), selfhub-web (8081), and whatever
+    // port a given dev's machine happens to use, without needing CORS_ORIGIN
+    // set locally. Never applied in production.
+    const LOCALHOST_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
 
     await app.register(helmet)
 
@@ -59,13 +66,33 @@ const start = async () => {
       timeWindow: '1 minute'
     })
 
+    // Beyond the static CORS_ORIGIN allowlist, also accept any origin whose
+    // hostname matches a restaurant's registered digital-menu custom domain
+    // (Restaurant.domain) — every customer domain points at this same API
+    // deploy, so a fixed env var can't enumerate them all. See
+    // docs/digital-menu-feature.md §0 and shared/restaurantDomains.ts.
+    async function resolveCorsOrigin(origin: string | undefined): Promise<boolean> {
+      if (!origin) {
+        return Boolean(allowedOrigins?.length)
+      }
+
+      if (!isProduction && LOCALHOST_ORIGIN_REGEX.test(origin)) {
+        return true
+      }
+
+      if (allowedOrigins?.includes(origin)) {
+        return true
+      }
+
+      return isAllowedDomainOrigin(origin)
+    }
+
     await app.register(cors, {
       origin: (origin, callback) => {
-        if (!allowedOrigins || allowedOrigins.length === 0) {
-          callback(null, false)
-          return
-        }
-        callback(null, !origin || allowedOrigins.includes(origin))
+        resolveCorsOrigin(origin).then(
+          (allowed) => callback(null, allowed),
+          (err) => callback(err, false)
+        )
       },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],

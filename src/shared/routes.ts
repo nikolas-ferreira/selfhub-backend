@@ -25,6 +25,8 @@ import { PaymentController } from "../modules/payment/PaymentController"
 import { MercadoPagoWebhookController } from "../modules/payment/MercadoPagoWebhookController"
 import { FiscalDocumentController } from "../modules/fiscalDocument/FiscalDocumentController"
 import { ComandaController } from "../modules/comanda/ComandaController"
+import { TrackOrderController } from "../modules/order/TrackOrderController"
+import { optionalVerifyToken } from "./utils/optionalVerifyToken"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -58,6 +60,7 @@ export async function routes(fastify: FastifyInstance) {
   const mercadoPagoWebhookController = new MercadoPagoWebhookController()
   const fiscalDocumentController = new FiscalDocumentController()
   const comandaController = new ComandaController()
+  const trackOrderController = new TrackOrderController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -90,6 +93,25 @@ export async function routes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const req = request as FastifyRequest<{ Params: { cnpj: string } }>;
       return getRestaurantController.handle(req, reply);
+    }
+  );
+
+  // Restaurant - Public (digital menu)
+  fastify.get(
+    "/restaurants/:id",
+    { schema: { tags: ["Restaurant"], summary: "Get restaurant by id" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const req = request as FastifyRequest<{ Params: { id: string } }>;
+      return getRestaurantController.byId(req, reply);
+    }
+  );
+
+  fastify.get(
+    "/restaurants/by-domain/:domain",
+    { schema: { tags: ["Restaurant"], summary: "Get restaurant by custom domain" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const req = request as FastifyRequest<{ Params: { domain: string } }>;
+      return getRestaurantController.byDomain(req, reply);
     }
   );
 
@@ -182,6 +204,15 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  // Public order tracking (digital menu "Acompanhar Pedido")
+  fastify.get(
+    "/orders/track/:id",
+    { schema: { tags: ["Order"], summary: "Track a single order's status (public)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return trackOrderController.handle(request, reply)
+    }
+  )
+
   fastify.post(
     "/delivery-zones",
     { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "Create delivery zone" } },
@@ -190,9 +221,11 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  // List is consumed both by the authenticated admin and the anonymous digital
+  // menu checkout — see DeliveryZoneController#list and digital-menu-feature.md §6.
   fastify.get(
     "/delivery-zones",
-    { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "List delivery zones" } },
+    { preHandler: [optionalVerifyToken], schema: { tags: ["DeliveryZone"], summary: "List delivery zones" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return deliveryZoneController.list(request, reply)
     }
@@ -365,6 +398,18 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["Comanda"], summary: "List comandas open at a table" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return comandaController.listByTable(request, reply)
+    }
+  )
+
+  // Self-checkin (digital menu QR code, public, no auth)
+  fastify.post(
+    "/tables/:tableNumber/comandas/self-checkin",
+    {
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+      schema: { tags: ["Comanda"], summary: "Self-service check-in (public, no auth)" }
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return comandaController.selfCheckin(request, reply)
     }
   )
 

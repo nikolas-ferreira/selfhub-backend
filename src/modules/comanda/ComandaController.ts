@@ -77,4 +77,22 @@ export class ComandaController {
     });
     return reply.status(result.statusCode).send(result);
   }
+
+  /** `POST /tables/:tableNumber/comandas/self-checkin` — public, no auth. */
+  async selfCheckin(request: FastifyRequest, reply: FastifyReply) {
+    const { tableNumber } = request.params as { tableNumber: string };
+    const { restaurantId } = request.body as { restaurantId?: string };
+
+    const parsedTableNumber = Number(tableNumber);
+    if (!Number.isInteger(parsedTableNumber)) {
+      return reply.status(400).send(badRequest("'tableNumber' must be an integer"));
+    }
+
+    if (!restaurantId) {
+      return reply.status(400).send(badRequest("'restaurantId' is required"));
+    }
+
+    const result = await this.service.selfCheckin({ tableNumber: parsedTableNumber, restaurantId });
+    return reply.status(result.statusCode).send(result);
+  }
 }

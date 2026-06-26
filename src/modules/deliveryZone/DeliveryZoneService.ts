@@ -82,6 +82,25 @@ export class DeliveryZoneService {
   }
 
   /**
+   * `GET /delivery-zones` for an anonymous caller (digital menu checkout,
+   * see docs/digital-menu-feature.md §6) — same shape as {@link list}, but
+   * scoped by an explicit `restaurantId` query param instead of a token, and
+   * restricted to `isActive: true` zones (inactive ones are an admin-only concern).
+   */
+  async listPublic({ restaurantId }: { restaurantId: string }) {
+    if (!restaurantId) {
+      return { statusCode: 400, response: null, message: "'restaurantId' query param is required" }
+    }
+
+    const zones = await prisma.deliveryZone.findMany({
+      where: { restaurantId, isActive: true },
+      orderBy: { name: "asc" },
+    })
+
+    return { statusCode: 200, response: zones }
+  }
+
+  /**
    * Partially updates a zone. Does not touch historical orders — `deliveryFee`/
    * `estimatedTime` on past orders are snapshots taken at order-creation time.
    */

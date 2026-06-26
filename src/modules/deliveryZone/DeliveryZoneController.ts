@@ -29,17 +29,29 @@ export class DeliveryZoneController {
     return reply.status(result.statusCode).send(result)
   }
 
-  /** `GET /delivery-zones` — any authenticated user in the restaurant. */
+  /**
+   * `GET /delivery-zones` — any authenticated user in the restaurant gets
+   * the full list (incl. inactive). An anonymous caller (digital menu
+   * checkout) must pass `restaurantId` and only gets `isActive: true` zones
+   * — see {@link DeliveryZoneService.listPublic} and
+   * docs/digital-menu-feature.md §6.
+   */
   async list(request: FastifyRequest, reply: FastifyReply) {
-    const user = request.user as LoggedUser
+    const user = request.user as LoggedUser | undefined
+    const service = new DeliveryZoneService()
 
-    if (!user) {
-      return reply.status(401).send({ statusCode: 401, response: null, message: "Unauthorized" })
+    if (user) {
+      const result = await service.list(user)
+      return reply.status(result.statusCode).send(result)
     }
 
-    const service = new DeliveryZoneService()
-    const result = await service.list(user)
+    const { restaurantId } = request.query as { restaurantId?: string }
 
+    if (!restaurantId) {
+      return reply.status(400).send({ statusCode: 400, response: null, message: "'restaurantId' query param is required" })
+    }
+
+    const result = await service.listPublic({ restaurantId })
     return reply.status(result.statusCode).send(result)
   }
 

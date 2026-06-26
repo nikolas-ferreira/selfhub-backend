@@ -12,6 +12,10 @@ model Restaurant {
   name          String
   cnpj          String         @unique
   created_at    DateTime?      @default(now())
+  /// Custom hostname for this restaurant's digital menu (selfhub-web), e.g. `cardapio.boteco-do-ze.com.br` —
+  /// no protocol/port. Optional: restaurants that only use selfhub-admin don't need one. Resolved by
+  /// `GET /restaurants/by-domain/:domain` — see docs/digital-menu-feature.md §0.
+  domain        String?        @unique
   profiles      Profile[]
   categories    Category[]
   orders        Order[]
@@ -306,6 +310,11 @@ enum ComandaStatus {
   CLOSED
 }
 
+enum ComandaOpenedBy {
+  STAFF
+  CUSTOMER
+}
+
 /**
  * A physical "comanda" card handed to a guest. `number` is whatever's
  * printed on the card — there's no pre-registered range or auto-increment.
@@ -316,17 +325,20 @@ enum ComandaStatus {
  * once — there's no 1:1 table/comanda relationship.
  */
 model Comanda {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  restaurantId String        @db.ObjectId
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId String          @db.ObjectId
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id])
   number       Int
   tableNumber  Int
-  status       ComandaStatus @default(OPEN)
-  openedAt     DateTime      @default(now())
+  status       ComandaStatus   @default(OPEN)
+  openedAt     DateTime        @default(now())
   closedAt     DateTime?
-  openedById   String        @db.ObjectId
-  /// Denormalized name of `openedById`, same convention as `CashSession.cashierName`.
+  /// Null when `openedBy: CUSTOMER` — a self-checkin (digital menu QR code) has no `Staff` behind it.
+  openedById   String?         @db.ObjectId
+  /// Denormalized name of `openedById`, same convention as `CashSession.cashierName`. `"Self-Service"` for `CUSTOMER`.
   openedByName String
+  /// `STAFF` (garçom/caixa abriu via `POST /comandas`) vs `CUSTOMER` (cliente via `POST /tables/:tableNumber/comandas/self-checkin`).
+  openedBy     ComandaOpenedBy @default(STAFF)
   bills        Bill[]
 
   @@index([restaurantId, number, status])
