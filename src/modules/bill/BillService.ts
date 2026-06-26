@@ -136,6 +136,26 @@ export class BillService {
     });
 
     const debugByComandaOnly = await prisma.order.findMany({ where: { comandaId: comanda.id } });
+    const debugComandaPlusStatus = await prisma.order.count({
+      where: { comandaId: comanda.id, status: { in: AGGREGATABLE_ORDER_STATUSES } },
+    });
+    const debugComandaPlusBillIdNull = await prisma.order.count({
+      where: { comandaId: comanda.id, billId: null },
+    });
+    const debugOrOnlyNoStatus = await prisma.order.count({
+      where: {
+        restaurantId,
+        OR: [
+          { comandaId: comanda.id, billId: null },
+          { comandaId: null, origin: "LOCAL" as const, tableNumber: String(comanda.tableNumber), billId: null },
+        ],
+      },
+    });
+    console.log("[BillService] getOrCreateBill bisect", {
+      debugComandaPlusStatus,
+      debugComandaPlusBillIdNull,
+      debugOrOnlyNoStatus,
+    });
     console.log("[BillService] getOrCreateBill debug", {
       restaurantId,
       comandaId: comanda.id,
