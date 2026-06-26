@@ -115,12 +115,22 @@ export class BillService {
     // Only orders that don't yet belong to any bill (new ones), or that already
     // belong to this same open bill (re-aggregation), are eligible — see
     // Order.billId's doc comment. Matched by comandaId, not table/origin.
+    //
+    // Fallback: LOCAL orders placed before the comanda migration (or by a
+    // client that predates it) have comandaId: null — see Order.comandaId's
+    // doc comment. Without this they'd keep a table "occupied" forever while
+    // never showing up in any comanda's bill. Matched by table instead, and
+    // only while unbilled, so each legacy order still gets claimed by just
+    // one bill.
     const orders = await prisma.order.findMany({
       where: {
         restaurantId,
-        comandaId: comanda.id,
         status: { in: AGGREGATABLE_ORDER_STATUSES },
-        OR: bill ? [{ billId: null }, { billId: bill.id }] : [{ billId: null }],
+        OR: [
+          { comandaId: comanda.id, billId: null },
+          ...(bill ? [{ comandaId: comanda.id, billId: bill.id }] : []),
+          { comandaId: null, origin: "LOCAL" as const, tableNumber: String(comanda.tableNumber), billId: null },
+        ],
       },
       include: { items: { include: { product: true, customizations: true } } },
     });
