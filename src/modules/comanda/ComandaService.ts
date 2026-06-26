@@ -103,6 +103,11 @@ export class ComandaService {
       return notFound("Restaurant not found");
     }
 
+    const table = await prisma.table.findFirst({ where: { restaurantId, number: tableNumber } });
+    if (!table) {
+      return notFound("Mesa não encontrada. Verifique o número e tente novamente.");
+    }
+
     const openComandas = await prisma.comanda.findMany({
       where: { restaurantId, tableNumber, status: "OPEN" },
       orderBy: { openedAt: "desc" },

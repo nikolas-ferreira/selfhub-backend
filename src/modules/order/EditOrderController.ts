@@ -36,6 +36,18 @@ export class EditOrderStatusController {
       })
     }
 
+    // FINISHED must only happen through the cashier's payment flow
+    // (`POST /bills/:id/close`), which checks the bill is fully paid before
+    // finalizing the orders. This endpoint is a manual override — restricted
+    // to ADMIN — for the rest of the status flow only.
+    if (status === OrderStatus.FINISHED && user.role !== 'ADMIN') {
+      return reply.status(403).send({
+        statusCode: 403,
+        response: null,
+        message: 'Apenas o caixa (ao registrar o pagamento) ou um administrador podem finalizar um pedido.'
+      })
+    }
+
     try {
       const service = new EditOrderStatusService()
       const updatedOrder = await service.execute({

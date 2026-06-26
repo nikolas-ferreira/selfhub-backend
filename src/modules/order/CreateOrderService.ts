@@ -109,6 +109,7 @@ export class CreateOrderService {
     let tableNumber = data.tableNumber;
     let comandaId: string | null = null;
     let comandaNumber: number | null = null;
+    let table: { id: string; status: string } | null = null;
 
     if (origin === "LOCAL") {
       if (!data.comandaId || !/^[0-9a-fA-F]{24}$/.test(data.comandaId)) {
@@ -126,6 +127,15 @@ export class CreateOrderService {
       comandaId = comanda.id;
       comandaNumber = comanda.number;
       tableNumber = comanda.tableNumber;
+
+      // Defense in depth: the table could have been removed from the floor
+      // plan after the comanda was opened against it.
+      table = await prisma.table.findFirst({
+        where: { restaurantId: data.restaurantId, number: tableNumber },
+      });
+      if (!table) {
+        throw new Error("Mesa não encontrada para este restaurante.");
+      }
     } else if (data.comandaId) {
       throw new Error("comandaId must be null when origin is not LOCAL");
     }
@@ -196,6 +206,10 @@ export class CreateOrderService {
         },
       },
     });
+
+    if (origin === "LOCAL" && table && table.status !== "occupied") {
+      await prisma.table.update({ where: { id: table.id }, data: { status: "occupied" } });
+    }
 
     return order;
   }
