@@ -116,55 +116,30 @@ export class BillService {
     // belong to this same open bill (re-aggregation), are eligible — see
     // Order.billId's doc comment. Matched by comandaId, not table/origin.
     //
+    // `billId` is never set on `create` (see CreateOrderService), so on MongoDB
+    // the field is *absent* rather than stored as BSON null — and Prisma's
+    // `billId: null` filter only matches an explicit null, not a missing field.
+    // `isSet: false` is required to also catch those (i.e. every order, since
+    // none of them ever explicitly null out the field either).
+    //
     // Fallback: LOCAL orders placed before the comanda migration (or by a
     // client that predates it) have comandaId: null — see Order.comandaId's
     // doc comment. Without this they'd keep a table "occupied" forever while
     // never showing up in any comanda's bill. Matched by table instead, and
     // only while unbilled, so each legacy order still gets claimed by just
     // one bill.
+    const unbilled = { OR: [{ billId: null }, { billId: { isSet: false as const } }] };
     const orders = await prisma.order.findMany({
       where: {
         restaurantId,
         status: { in: AGGREGATABLE_ORDER_STATUSES },
         OR: [
-          { comandaId: comanda.id, billId: null },
+          { comandaId: comanda.id, AND: [unbilled] },
           ...(bill ? [{ comandaId: comanda.id, billId: bill.id }] : []),
-          { comandaId: null, origin: "LOCAL" as const, tableNumber: String(comanda.tableNumber), billId: null },
+          { comandaId: null, origin: "LOCAL" as const, tableNumber: String(comanda.tableNumber), AND: [unbilled] },
         ],
       },
       include: { items: { include: { product: true, customizations: true } } },
-    });
-
-    const debugByComandaOnly = await prisma.order.findMany({ where: { comandaId: comanda.id } });
-    const debugComandaPlusStatus = await prisma.order.count({
-      where: { comandaId: comanda.id, status: { in: AGGREGATABLE_ORDER_STATUSES } },
-    });
-    const debugComandaPlusBillIdNull = await prisma.order.count({
-      where: { comandaId: comanda.id, billId: null },
-    });
-    const debugOrOnlyNoStatus = await prisma.order.count({
-      where: {
-        restaurantId,
-        OR: [
-          { comandaId: comanda.id, billId: null },
-          { comandaId: null, origin: "LOCAL" as const, tableNumber: String(comanda.tableNumber), billId: null },
-        ],
-      },
-    });
-    console.log("[BillService] getOrCreateBill bisect", {
-      debugComandaPlusStatus,
-      debugComandaPlusBillIdNull,
-      debugOrOnlyNoStatus,
-    });
-    console.log("[BillService] getOrCreateBill debug", {
-      restaurantId,
-      comandaId: comanda.id,
-      comandaTableNumber: comanda.tableNumber,
-      existingBillId: bill?.id ?? null,
-      ordersFound: orders.length,
-      orderSample: orders.map((o) => ({ id: o.id, comandaId: o.comandaId, status: o.status, billId: o.billId, tableNumber: o.tableNumber })),
-      byComandaOnlyCount: debugByComandaOnly.length,
-      byComandaOnlySample: debugByComandaOnly.map((o) => ({ id: o.id, comandaId: o.comandaId, status: o.status, billId: o.billId, restaurantId: o.restaurantId })),
     });
 
     const itemsByProduct = new Map<string, { productId: string; productName: string; quantity: number; total: number }>();
