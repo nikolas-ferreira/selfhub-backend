@@ -135,6 +135,7 @@ export class BillService {
       include: { items: { include: { product: true, customizations: true } } },
     });
 
+    const debugByComandaOnly = await prisma.order.findMany({ where: { comandaId: comanda.id } });
     console.log("[BillService] getOrCreateBill debug", {
       restaurantId,
       comandaId: comanda.id,
@@ -142,6 +143,8 @@ export class BillService {
       existingBillId: bill?.id ?? null,
       ordersFound: orders.length,
       orderSample: orders.map((o) => ({ id: o.id, comandaId: o.comandaId, status: o.status, billId: o.billId, tableNumber: o.tableNumber })),
+      byComandaOnlyCount: debugByComandaOnly.length,
+      byComandaOnlySample: debugByComandaOnly.map((o) => ({ id: o.id, comandaId: o.comandaId, status: o.status, billId: o.billId, restaurantId: o.restaurantId })),
     });
 
     const itemsByProduct = new Map<string, { productId: string; productName: string; quantity: number; total: number }>();
