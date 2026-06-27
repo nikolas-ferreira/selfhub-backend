@@ -1,7 +1,8 @@
 import prisma from "../../shared/prisma";
 import { Prisma } from "@prisma/client";
-import { AddressInput, OrderOrigin } from "./orderTypes";
+import { AddressInput, CustomerInput, OrderOrigin } from "./orderTypes";
 import { isRestaurantOpenNow } from "../../shared/utils/businessHours";
+import { isValidCpf, onlyDigits } from "../../shared/utils/cpf";
 
 interface CustomizationOptionInput {
   name: string;
@@ -31,6 +32,8 @@ export interface CreateOrderRequest {
   origin?: OrderOrigin;
   deliveryZoneId?: string | null;
   address?: AddressInput;
+  /** Required for every origin — see {@link CustomerInput}. Used to find-or-create the `Customer` by CPF. */
+  customer: CustomerInput;
   items: CreateOrderItem[];
 }
 
@@ -62,6 +65,20 @@ export class CreateOrderService {
       if (!item.productId || !item.quantity || item.quantity <= 0) {
         throw new Error("Each item requires a valid productId and a positive quantity");
       }
+    }
+
+    if (!data.customer?.name?.trim()) {
+      throw new Error("customer.name is required");
+    }
+
+    const customerPhone = onlyDigits(data.customer.phone || "");
+    if (customerPhone.length < 10 || customerPhone.length > 11) {
+      throw new Error("customer.phone must be a valid phone number");
+    }
+
+    const customerCpf = onlyDigits(data.customer.cpf || "");
+    if (!isValidCpf(customerCpf)) {
+      throw new Error("customer.cpf must be a valid CPF");
     }
 
     const restaurant = await prisma.restaurant.findUnique({
@@ -176,6 +193,30 @@ export class CreateOrderService {
       }
     }
 
+    const customerName = data.customer.name.trim();
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { restaurantId_cpf: { restaurantId: data.restaurantId, cpf: customerCpf } },
+    });
+
+    const customer = existingCustomer
+      ? await prisma.customer.update({
+          where: { id: existingCustomer.id },
+          data: {
+            name: customerName,
+            phone: customerPhone,
+            ...(address ? { address } : {}),
+          },
+        })
+      : await prisma.customer.create({
+          data: {
+            restaurantId: data.restaurantId,
+            cpf: customerCpf,
+            name: customerName,
+            phone: customerPhone,
+            ...(address ? { address } : {}),
+          },
+        });
+
     const order = await prisma.order.create({
       data: {
         orderNumber: String(data.orderNumber),
@@ -193,6 +234,10 @@ export class CreateOrderService {
         deliveryFee,
         estimatedDeliveryTime,
         address,
+        customerId: customer.id,
+        customerName,
+        customerCpf,
+        customerPhone,
         items: {
           create: data.items.map((item) => ({
             product: { connect: { id: item.productId } },

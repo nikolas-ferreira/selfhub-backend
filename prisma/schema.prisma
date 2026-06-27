@@ -36,6 +36,7 @@ model Restaurant {
   cashSessions  CashSession[]
   bills         Bill[]
   comandas      Comanda[]
+  customers     Customer[]
 
   @@map("restaurants")
 }
@@ -259,10 +260,45 @@ model Order {
   /// Denormalized from `Comanda.number` at creation time, same convention as the other denormalized
   /// "*Name"/"*Number" fields in this schema — lets the front display it without an extra lookup.
   comandaNumber         Int?
+  /// The customer who placed this order, identified by CPF (see `Customer`). Optional because
+  /// orders created before this feature existed have it absent in Mongo (not backfilled).
+  customerId            String?       @db.ObjectId
+  customer              Customer?     @relation(fields: [customerId], references: [id])
+  /// Denormalized snapshot of `Customer.name`/`cpf`/`phone` at order time, same convention as the
+  /// other denormalized "*Name"/"*Number" fields in this schema — survives later edits to the customer record.
+  customerName          String?
+  customerCpf           String?
+  customerPhone         String?
 
   @@index([origin])
   @@index([restaurantId, tableNumber, billId])
   @@index([restaurantId, comandaId])
+  @@index([restaurantId, customerId])
+}
+
+/**
+ * A customer identified by CPF, scoped per restaurant — the same person ordering from two
+ * different restaurants on the platform gets two separate `Customer` records. Created/updated
+ * via upsert-by-CPF inside `CreateOrderService` the first time someone places an order with that
+ * CPF; never created directly from selfhub-admin (see CustomerService — view/edit only, no create).
+ * `cpf`/`phone` are stored digits-only (no mask) — formatting is a UI-only concern.
+ */
+model Customer {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  cpf          String
+  name         String
+  phone        String
+  /// Last known delivery address, kept up to date on every DELIVERY order. Null if the customer
+  /// has only ever placed LOCAL/PICKUP orders.
+  address      Json?
+  restaurantId String     @db.ObjectId
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  orders       Order[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([restaurantId, cpf])
+  @@index([restaurantId, name])
 }
 
 model DeliveryZone {

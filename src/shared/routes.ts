@@ -28,6 +28,7 @@ import { MercadoPagoWebhookController } from "../modules/payment/MercadoPagoWebh
 import { FiscalDocumentController } from "../modules/fiscalDocument/FiscalDocumentController"
 import { ComandaController } from "../modules/comanda/ComandaController"
 import { TrackOrderController } from "../modules/order/TrackOrderController"
+import { CustomerController } from "../modules/customer/CustomerController"
 import { optionalVerifyToken } from "./utils/optionalVerifyToken"
 
 /**
@@ -65,6 +66,7 @@ export async function routes(fastify: FastifyInstance) {
   const fiscalDocumentController = new FiscalDocumentController()
   const comandaController = new ComandaController()
   const trackOrderController = new TrackOrderController()
+  const customerController = new CustomerController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -248,6 +250,30 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["DeliveryZone"], summary: "Delete delivery zone" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return deliveryZoneController.delete(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/customers",
+    { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "List customers" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return customerController.list(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/customers/:id",
+    { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "Get customer detail with order history" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return customerController.getById(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/customers/:id",
+    { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "Update customer" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return customerController.update(request, reply)
     }
   )
 

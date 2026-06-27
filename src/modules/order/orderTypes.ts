@@ -12,3 +12,10 @@ export interface AddressInput {
   complement?: string;
   reference?: string;
 }
+
+/** Identifies who placed the order — required for every origin, used to upsert `Customer` by CPF. */
+export interface CustomerInput {
+  cpf: string;
+  name: string;
+  phone: string;
+}

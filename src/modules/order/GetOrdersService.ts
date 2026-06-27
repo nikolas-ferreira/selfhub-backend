@@ -40,6 +40,10 @@ export class GetOrdersService {
         estimatedDeliveryTime: true,
         totalValue: true,
         paymentMethod: true,
+        customerId: true,
+        customerName: true,
+        customerCpf: true,
+        customerPhone: true,
         deliveryZone: {
           select: {
             id: true,
