@@ -20,6 +20,12 @@ model Restaurant {
   /// "always open" — existing restaurants aren't suddenly blocked from taking orders just
   /// because they haven't configured this yet. See `src/shared/utils/businessHours.ts`.
   businessHours BusinessHoursDay[]
+  /// Ordered list of marketing/menu sections rendered at the top of the digital menu's
+  /// home page (banner carousels, curated product carousels). Order = array order, both
+  /// for sections and for the banners/items inside each one. Empty/absent means the home
+  /// page shows no marketing sections — just search + categories. See
+  /// `src/modules/homeSections/HomeSectionsService.ts`.
+  homeSections  HomeSection[]
   profiles      Profile[]
   categories    Category[]
   orders        Order[]
@@ -41,6 +47,47 @@ type BusinessHoursDay {
   /// "HH:mm", required when `isOpen` is true.
   openTime  String?
   closeTime String?
+}
+
+/// A slide in a `HomeSection` of type `BANNER_CAROUSEL`. Plain `imageUrl` string —
+/// same convention as `Product.imageUrl`/`Category.iconUrl`, no upload pipeline.
+type HomeBannerSlide {
+  /// Client-generated, stable across edits (not a Mongo ObjectId) — composite types
+  /// embedded in an array don't get one automatically.
+  id            String
+  imageUrl      String
+  badgeText     String?
+  title         String?
+  subtitle      String?
+  ctaLabel      String?
+  /// Tapping the banner opens this product, if set (mutually exclusive with ctaCategoryId).
+  ctaProductId  String? @db.ObjectId
+  ctaCategoryId String? @db.ObjectId
+}
+
+/// One curated product inside a `HomeSection` of type `PRODUCT_CAROUSEL`. `badgeText`/
+/// `compareAtPrice` are purely decorative — the real order price always comes from the
+/// product catalog (see CreateOrderService), never from here.
+type HomeCarouselItem {
+  id             String
+  productId      String  @db.ObjectId
+  badgeText      String?
+  compareAtPrice Float?
+}
+
+/// One section of the digital menu home page, e.g. a hero banner carousel or a curated
+/// "Ofertas do Dia" product carousel. See `src/modules/homeSections/HomeSectionsService.ts`.
+type HomeSection {
+  id           String
+  /// "BANNER_CAROUSEL" | "PRODUCT_CAROUSEL"
+  type         String
+  /// Section heading shown above it — ignored for BANNER_CAROUSEL.
+  title        String?
+  /// "CARD" | "CIRCLE" | "FEATURED" — only meaningful for PRODUCT_CAROUSEL.
+  displayStyle String?
+  isActive     Boolean            @default(true)
+  banners      HomeBannerSlide[]
+  items        HomeCarouselItem[]
 }
 
 model Device {

@@ -19,6 +19,7 @@ import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneCont
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 import { TableLayoutController } from "../modules/tableLayout/TableLayoutController"
 import { BusinessHoursController } from "../modules/businessHours/BusinessHoursController"
+import { HomeSectionsController } from "../modules/homeSections/HomeSectionsController"
 import { StaffController } from "../modules/staff/StaffController"
 import { CashSessionController } from "../modules/cashSession/CashSessionController"
 import { BillController } from "../modules/bill/BillController"
@@ -55,6 +56,7 @@ export async function routes(fastify: FastifyInstance) {
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
   const tableLayoutController = new TableLayoutController()
   const businessHoursController = new BusinessHoursController()
+  const homeSectionsController = new HomeSectionsController()
   const staffController = new StaffController()
   const cashSessionController = new CashSessionController()
   const billController = new BillController()
@@ -302,6 +304,22 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["BusinessHours"], summary: "Save business hours" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return businessHoursController.save(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/restaurants/:restaurantId/home-sections",
+    { preHandler: [verifyToken], schema: { tags: ["HomeSections"], summary: "Get digital menu home sections" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return homeSectionsController.get(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/restaurants/:restaurantId/home-sections",
+    { preHandler: [verifyToken], schema: { tags: ["HomeSections"], summary: "Save digital menu home sections" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return homeSectionsController.save(request, reply)
     }
   )
 
