@@ -1,6 +1,7 @@
 import prisma from "../../shared/prisma";
 import { Prisma } from "@prisma/client";
 import { AddressInput, OrderOrigin } from "./orderTypes";
+import { isRestaurantOpenNow } from "../../shared/utils/businessHours";
 
 interface CustomizationOptionInput {
   name: string;
@@ -69,6 +70,10 @@ export class CreateOrderService {
 
     if (!restaurant) {
       throw new Error("Restaurant not found");
+    }
+
+    if (!isRestaurantOpenNow(restaurant.businessHours)) {
+      throw new Error("O restaurante está fechado no momento. Pedidos só podem ser feitos durante o horário de funcionamento.");
     }
 
     const products = await prisma.product.findMany({

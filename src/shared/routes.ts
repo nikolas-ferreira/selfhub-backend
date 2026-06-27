@@ -18,6 +18,7 @@ import { GetProductInsightsController } from "../modules/insights/GetProductInsi
 import { DeliveryZoneController } from "../modules/deliveryZone/DeliveryZoneController"
 import { GetDeliveryOrdersController } from "../modules/order/GetDeliveryOrdersController"
 import { TableLayoutController } from "../modules/tableLayout/TableLayoutController"
+import { BusinessHoursController } from "../modules/businessHours/BusinessHoursController"
 import { StaffController } from "../modules/staff/StaffController"
 import { CashSessionController } from "../modules/cashSession/CashSessionController"
 import { BillController } from "../modules/bill/BillController"
@@ -53,6 +54,7 @@ export async function routes(fastify: FastifyInstance) {
   const deliveryZoneController = new DeliveryZoneController()
   const getDeliveryOrdersController = new GetDeliveryOrdersController()
   const tableLayoutController = new TableLayoutController()
+  const businessHoursController = new BusinessHoursController()
   const staffController = new StaffController()
   const cashSessionController = new CashSessionController()
   const billController = new BillController()
@@ -284,6 +286,22 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["TableLayout"], summary: "Update table status" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return tableLayoutController.updateStatus(request, reply)
+    }
+  )
+
+  fastify.get(
+    "/restaurants/:restaurantId/business-hours",
+    { preHandler: [verifyToken], schema: { tags: ["BusinessHours"], summary: "Get business hours" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return businessHoursController.get(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/restaurants/:restaurantId/business-hours",
+    { preHandler: [verifyToken], schema: { tags: ["BusinessHours"], summary: "Save business hours" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return businessHoursController.save(request, reply)
     }
   )
 

@@ -16,6 +16,10 @@ model Restaurant {
   /// no protocol/port. Optional: restaurants that only use selfhub-admin don't need one. Resolved by
   /// `GET /restaurants/by-domain/:domain` — see docs/digital-menu-feature.md §0.
   domain        String?        @unique
+  /// Weekly opening hours, one entry per weekday (0=Sunday..6=Saturday). Empty/absent means
+  /// "always open" — existing restaurants aren't suddenly blocked from taking orders just
+  /// because they haven't configured this yet. See `src/shared/utils/businessHours.ts`.
+  businessHours BusinessHoursDay[]
   profiles      Profile[]
   categories    Category[]
   orders        Order[]
@@ -28,6 +32,15 @@ model Restaurant {
   comandas      Comanda[]
 
   @@map("restaurants")
+}
+
+type BusinessHoursDay {
+  /// 0=Sunday … 6=Saturday — matches JS `Date.getDay()`.
+  dayOfWeek Int
+  isOpen    Boolean @default(true)
+  /// "HH:mm", required when `isOpen` is true.
+  openTime  String?
+  closeTime String?
 }
 
 model Device {
