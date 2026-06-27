@@ -17,6 +17,8 @@ const APPROVER_ROLES: Role[] = ["MANAGER", "ADMIN"];
 const AGGREGATABLE_ORDER_STATUSES: OrderStatus[] = ["CREATED", "PREPARING", "COMING", "DELIVERED"];
 /** Discounts up to this percentage are free for the cashier to apply; above it requires PIN approval. */
 const FREE_DISCOUNT_THRESHOLD_PERCENT = 10;
+/** Every new Bill starts with the service fee already on — the cashier turns it off, not on. */
+const DEFAULT_SERVICE_FEE_PERCENT = 10;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -187,7 +189,9 @@ export class BillService {
     // new subtotal (a fixed discountAmount, with no percent on file, is kept as-is).
     const discountPercent = bill?.discountPercent ?? null;
     const discountAmount = discountPercent != null ? round2((subtotal * discountPercent) / 100) : bill?.discountAmount ?? 0;
-    const serviceFeePercent = bill?.serviceFeePercent ?? null;
+    // New bills start with the service fee on by default (see DEFAULT_SERVICE_FEE_PERCENT); an
+    // existing bill keeps whatever the cashier already set, including having turned it off (null).
+    const serviceFeePercent = bill ? bill.serviceFeePercent : DEFAULT_SERVICE_FEE_PERCENT;
     const serviceFeeAmount = serviceFeePercent != null ? round2(((subtotal - discountAmount) * serviceFeePercent) / 100) : 0;
     const total = round2(subtotal - discountAmount + serviceFeeAmount);
 
@@ -215,8 +219,9 @@ export class BillService {
             items,
             subtotal,
             discountAmount: 0,
-            serviceFeeAmount: 0,
-            total: subtotal,
+            serviceFeePercent,
+            serviceFeeAmount,
+            total,
           },
         });
         if (orderIds.length) {
@@ -294,7 +299,10 @@ export class BillService {
 
       const subtotal = round2(items.reduce((sum, item) => sum + item.total, 0));
       const deliveryFeeAmount = round2(order.deliveryFee ?? 0);
-      const total = round2(subtotal + deliveryFeeAmount);
+      // New bills start with the service fee on by default — see DEFAULT_SERVICE_FEE_PERCENT.
+      const serviceFeePercent = DEFAULT_SERVICE_FEE_PERCENT;
+      const serviceFeeAmount = round2((subtotal * serviceFeePercent) / 100);
+      const total = round2(subtotal + serviceFeeAmount + deliveryFeeAmount);
 
       bill = await prisma.$transaction(async (tx) => {
         const created = await tx.bill.create({
@@ -308,7 +316,8 @@ export class BillService {
             items,
             subtotal,
             discountAmount: 0,
-            serviceFeeAmount: 0,
+            serviceFeePercent,
+            serviceFeeAmount,
             deliveryFeeAmount,
             total,
           },

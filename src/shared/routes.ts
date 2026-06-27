@@ -29,6 +29,7 @@ import { FiscalDocumentController } from "../modules/fiscalDocument/FiscalDocume
 import { ComandaController } from "../modules/comanda/ComandaController"
 import { TrackOrderController } from "../modules/order/TrackOrderController"
 import { CustomerController } from "../modules/customer/CustomerController"
+import { CustomerDiscountController } from "../modules/customer/CustomerDiscountController"
 import { optionalVerifyToken } from "./utils/optionalVerifyToken"
 
 /**
@@ -67,6 +68,7 @@ export async function routes(fastify: FastifyInstance) {
   const comandaController = new ComandaController()
   const trackOrderController = new TrackOrderController()
   const customerController = new CustomerController()
+  const customerDiscountController = new CustomerDiscountController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -274,6 +276,22 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "Update customer" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return customerController.update(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/customers/:customerId/discounts",
+    { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "Grant a discount for this customer's next order" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return customerDiscountController.create(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/customer-discounts/:id/cancel",
+    { preHandler: [verifyToken], schema: { tags: ["Customer"], summary: "Cancel an active customer discount" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return customerDiscountController.cancel(request, reply)
     }
   )
 

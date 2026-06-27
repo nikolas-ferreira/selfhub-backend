@@ -40,6 +40,8 @@ export class GetOrdersService {
         deliveryFee: true,
         estimatedDeliveryTime: true,
         totalValue: true,
+        discountAmount: true,
+        customerDiscountId: true,
         paymentMethod: true,
         customerId: true,
         customerName: true,

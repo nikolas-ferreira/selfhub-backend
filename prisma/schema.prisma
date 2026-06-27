@@ -37,6 +37,7 @@ model Restaurant {
   bills         Bill[]
   comandas      Comanda[]
   customers     Customer[]
+  customerDiscounts CustomerDiscount[]
 
   @@map("restaurants")
 }
@@ -269,6 +270,13 @@ model Order {
   customerName          String?
   customerCpf           String?
   customerPhone         String?
+  /// Amount knocked off this order's `totalValue` by an ACTIVE `CustomerDiscount` claimed at creation
+  /// time (see CreateOrderService). Null when no discount applied — not just 0, to distinguish
+  /// "no discount available" from "discount happened to compute to zero".
+  discountAmount        Float?
+  /// The `CustomerDiscount` consumed by this order, if any. Plain scalar, no `@relation` — same
+  /// loose-coupling convention as `billId`.
+  customerDiscountId    String?       @db.ObjectId
 
   @@index([origin])
   @@index([restaurantId, tableNumber, billId])
@@ -294,11 +302,50 @@ model Customer {
   restaurantId String     @db.ObjectId
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   orders       Order[]
+  discounts    CustomerDiscount[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@unique([restaurantId, cpf])
   @@index([restaurantId, name])
+}
+
+enum CustomerDiscountStatus {
+  ACTIVE
+  USED
+  CANCELED
+}
+
+/**
+ * A manually-granted discount (fixed amount or percentage), e.g. "esse cliente pediu muito esse
+ * mês, vamos dar R$40 de desconto no próximo pedido dele". At most one `ACTIVE` discount per
+ * customer at a time — `CustomerDiscountService` blocks creating a second one until the first is
+ * used/canceled. Claimed atomically by `CreateOrderService` the next time this customer places an
+ * order (any origin), which flips it to `USED` and knocks the amount off that order's total.
+ */
+model CustomerDiscount {
+  id              String                 @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId    String                 @db.ObjectId
+  restaurant      Restaurant             @relation(fields: [restaurantId], references: [id])
+  customerId      String                 @db.ObjectId
+  customer        Customer               @relation(fields: [customerId], references: [id])
+  /// Exactly one of `discountPercent`/`discountAmount` is set — enforced by `CustomerDiscountService`.
+  discountPercent Float?
+  discountAmount  Float?
+  /// Free-text note for why it was granted (e.g. "5 pedidos em 30 dias") — shown back to whoever
+  /// reviews the customer's discount history.
+  reason          String?
+  status          CustomerDiscountStatus @default(ACTIVE)
+  createdById     String                 @db.ObjectId
+  /// Denormalized name of `createdById`, same convention as `Bill.discountApprovedById`'s neighbors.
+  createdByName   String
+  createdAt       DateTime               @default(now())
+  usedAt          DateTime?
+  /// Plain scalar, no `@relation` — same loose-coupling convention as `Order.billId`.
+  usedOrderId     String?                @db.ObjectId
+  canceledAt      DateTime?
+
+  @@index([restaurantId, customerId, status])
 }
 
 model DeliveryZone {

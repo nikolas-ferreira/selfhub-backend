@@ -84,6 +84,7 @@ export class CustomerService {
             },
           },
         },
+        discounts: { orderBy: { createdAt: "desc" } },
       },
     })
 

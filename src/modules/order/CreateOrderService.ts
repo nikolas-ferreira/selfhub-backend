@@ -217,6 +217,31 @@ export class CreateOrderService {
           },
         });
 
+    // Claim this customer's ACTIVE discount (if any) before creating the order: the `updateMany`
+    // filtered on `status: "ACTIVE"` only succeeds once even under a concurrent double-submit, so
+    // it can never be applied to two orders. A lost race (count === 0) just means no discount here.
+    const activeDiscount = await prisma.customerDiscount.findFirst({
+      where: { customerId: customer.id, restaurantId: data.restaurantId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+    });
+
+    let discountAmount = 0;
+    let claimedDiscountId: string | null = null;
+    if (activeDiscount) {
+      const claimed = await prisma.customerDiscount.updateMany({
+        where: { id: activeDiscount.id, status: "ACTIVE" },
+        data: { status: "USED", usedAt: new Date() },
+      });
+      if (claimed.count === 1) {
+        claimedDiscountId = activeDiscount.id;
+        const rawAmount =
+          activeDiscount.discountPercent != null
+            ? (totalValue * activeDiscount.discountPercent) / 100
+            : Math.min(activeDiscount.discountAmount ?? 0, totalValue);
+        discountAmount = Math.round(rawAmount * 100) / 100;
+      }
+    }
+
     const order = await prisma.order.create({
       data: {
         orderNumber: String(data.orderNumber),
@@ -227,7 +252,9 @@ export class CreateOrderService {
         comandaId,
         comandaNumber,
         waiterNumber: String(data.waiterNumber),
-        totalValue,
+        totalValue: Math.round((totalValue - discountAmount) * 100) / 100,
+        discountAmount: claimedDiscountId ? discountAmount : null,
+        customerDiscountId: claimedDiscountId,
         paymentMethod: data.paymentMethod,
         restaurantId: data.restaurantId,
         deliveryZoneId,
@@ -259,6 +286,10 @@ export class CreateOrderService {
 
     if (origin === "LOCAL" && table && table.status !== "occupied") {
       await prisma.table.update({ where: { id: table.id }, data: { status: "occupied" } });
+    }
+
+    if (claimedDiscountId) {
+      await prisma.customerDiscount.update({ where: { id: claimedDiscountId }, data: { usedOrderId: order.id } });
     }
 
     return order;
