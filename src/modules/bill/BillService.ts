@@ -28,6 +28,8 @@ export const formatBill = (
     comandaId: string | null;
     comandaNumber: number | null;
     tableNumber: number;
+    orderNumber: string | null;
+    customerName: string | null;
     cashSessionId: string;
     orderIds: string[];
     items: { productId: string; productName: string; quantity: number; unitPrice: number; total: number }[];
@@ -37,6 +39,7 @@ export const formatBill = (
     discountApprovedById: string | null;
     serviceFeeAmount: number;
     serviceFeePercent: number | null;
+    deliveryFeeAmount: number;
     total: number;
     status: string;
     closedAt: Date | null;
@@ -48,6 +51,8 @@ export const formatBill = (
   comandaId: bill.comandaId,
   comandaNumber: bill.comandaNumber,
   tableNumber: bill.tableNumber,
+  orderNumber: bill.orderNumber,
+  customerName: bill.customerName,
   cashSessionId: bill.cashSessionId,
   orderIds: bill.orderIds,
   items: bill.items.map((item) => ({
@@ -63,6 +68,7 @@ export const formatBill = (
   discountApprovedById: bill.discountApprovedById,
   serviceFeeAmount: bill.serviceFeeAmount,
   serviceFeePercent: bill.serviceFeePercent,
+  deliveryFeeAmount: bill.deliveryFeeAmount,
   total: bill.total,
   payments: payments.map(formatPayment),
   status: bill.status,
@@ -224,6 +230,98 @@ export class BillService {
     return { statusCode: 200, response: formatBill(bill, payments) };
   }
 
+  /**
+   * `GET /restaurants/:restaurantId/orders/:orderId/bill` — get-or-create, the DELIVERY/PICKUP
+   * counterpart to `getOrCreateBill`. There's no comanda/table to aggregate by here: a delivery
+   * order is billed on its own, one `Order` -> one `Bill`, since it never gets follow-up orders
+   * the way a table does.
+   */
+  async getOrCreateBillForOrder({
+    restaurantId,
+    orderId,
+    loggedUser,
+  }: {
+    restaurantId: string;
+    orderId: string;
+    loggedUser: LoggedUser;
+  }) {
+    if (!CAN_OPERATE_BILL.includes(loggedUser.role)) {
+      return forbidden("Only CASHIER, MANAGER or ADMIN can access the Caixa");
+    }
+
+    const session = await prisma.cashSession.findFirst({
+      where: { cashierId: loggedUser.id, restaurantId, status: "OPEN" },
+    });
+
+    if (!session) {
+      return badRequest("You need an open cash session to access an order's bill");
+    }
+
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, restaurantId, origin: { in: ["DELIVERY", "PICKUP"] } },
+      include: { items: { include: { product: true, customizations: true } } },
+    });
+
+    if (!order) {
+      return notFound("No delivery/pickup order found with this id");
+    }
+
+    if (!AGGREGATABLE_ORDER_STATUSES.includes(order.status)) {
+      return badRequest(`Order is ${order.status} and cannot be billed`);
+    }
+
+    let bill = await prisma.bill.findFirst({ where: { restaurantId, orderIds: { has: orderId }, status: "OPEN" } });
+
+    if (!bill && order.billId) {
+      return badRequest("Order already belongs to a closed bill");
+    }
+
+    if (!bill) {
+      const items = order.items.map((orderItem) => {
+        const customizationsTotal = orderItem.customizations.reduce(
+          (sum, opt) => sum + opt.additionalPrice * opt.quantity,
+          0
+        );
+        const total = round2((orderItem.product.price + customizationsTotal) * orderItem.quantity);
+        return {
+          productId: orderItem.productId,
+          productName: orderItem.product.name,
+          quantity: orderItem.quantity,
+          unitPrice: orderItem.quantity > 0 ? round2(total / orderItem.quantity) : 0,
+          total,
+        };
+      });
+
+      const subtotal = round2(items.reduce((sum, item) => sum + item.total, 0));
+      const deliveryFeeAmount = round2(order.deliveryFee ?? 0);
+      const total = round2(subtotal + deliveryFeeAmount);
+
+      bill = await prisma.$transaction(async (tx) => {
+        const created = await tx.bill.create({
+          data: {
+            restaurantId,
+            tableNumber: 0,
+            orderNumber: order.orderNumber,
+            customerName: order.customerName,
+            cashSessionId: session.id,
+            orderIds: [order.id],
+            items,
+            subtotal,
+            discountAmount: 0,
+            serviceFeeAmount: 0,
+            deliveryFeeAmount,
+            total,
+          },
+        });
+        await tx.order.update({ where: { id: order.id }, data: { billId: created.id } });
+        return created;
+      });
+    }
+
+    const payments = await prisma.payment.findMany({ where: { billId: bill.id }, orderBy: { createdAt: "asc" } });
+    return { statusCode: 200, response: formatBill(bill, payments) };
+  }
+
   /** `PATCH /bills/:id/discount` — over-10% discounts require a valid PIN-verified `approverId`. */
   async updateDiscount({
     billId,
@@ -289,7 +387,7 @@ export class BillService {
 
     const serviceFeeAmount =
       bill.serviceFeePercent != null ? round2(((bill.subtotal - resolvedAmount) * bill.serviceFeePercent) / 100) : bill.serviceFeeAmount;
-    const total = round2(bill.subtotal - resolvedAmount + serviceFeeAmount);
+    const total = round2(bill.subtotal - resolvedAmount + serviceFeeAmount + bill.deliveryFeeAmount);
 
     const updated = await prisma.bill.update({
       where: { id: billId },
@@ -335,7 +433,7 @@ export class BillService {
 
     const serviceFeeAmount =
       serviceFeePercent != null ? round2(((bill.subtotal - bill.discountAmount) * serviceFeePercent) / 100) : 0;
-    const total = round2(bill.subtotal - bill.discountAmount + serviceFeeAmount);
+    const total = round2(bill.subtotal - bill.discountAmount + serviceFeeAmount + bill.deliveryFeeAmount);
 
     const updated = await prisma.bill.update({
       where: { id: billId },

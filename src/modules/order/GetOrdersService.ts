@@ -34,6 +34,7 @@ export class GetOrdersService {
         tableNumber: true,
         comandaId: true,
         comandaNumber: true,
+        billId: true,
         waiterNumber: true,
         address: true,
         deliveryFee: true,

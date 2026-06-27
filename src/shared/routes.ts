@@ -484,6 +484,14 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.get(
+    "/restaurants/:restaurantId/orders/:orderId/bill",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Get or create a delivery/pickup order's open bill" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.getOrCreateBillForOrder(request, reply)
+    }
+  )
+
   fastify.patch(
     "/bills/:id/discount",
     { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Apply a discount to a bill" } },

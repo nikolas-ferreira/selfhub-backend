@@ -2,12 +2,12 @@ import { FastifyReply, FastifyRequest } from "fastify"
 import { GetOrdersService } from "./GetOrdersService"
 import { respondInternalError } from "../../shared/utils/respondInternalError"
 
-/** `GET /orders/delivery` — shortcut for {@link GetOrdersService} pre-filtered to `origin: "DELIVERY"`. Restricted to ADMIN/MANAGER. */
+/** `GET /orders/delivery` — shortcut for {@link GetOrdersService} pre-filtered to `origin: "DELIVERY"`. Restricted to ADMIN/MANAGER/CASHIER. */
 export class GetDeliveryOrdersController {
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER" && user.role !== "CASHIER")) {
       return reply.status(403).send({
         statusCode: 403,
         response: null,

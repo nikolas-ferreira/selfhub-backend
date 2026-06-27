@@ -544,7 +544,14 @@ model Bill {
   /// "absent on pre-migration rows" caveat as `comandaId`.
   comandaNumber        Int?
   /// Denormalized from `Comanda.tableNumber` — display only, not used to match orders anymore.
+  /// `0` for Bills created from a DELIVERY/PICKUP order via `BillService#getOrCreateBillForOrder`
+  /// — those have no table, see `orderNumber`/`customerName` instead.
   tableNumber          Int
+  /// Denormalized from `Order.orderNumber` — set only on Bills created via `getOrCreateBillForOrder`
+  /// (DELIVERY/PICKUP), null on comanda Bills. Lets the front display it without an extra lookup.
+  orderNumber          String?
+  /// Denormalized from `Order.customerName`, same convention/caveat as `orderNumber`.
+  customerName         String?
   cashSessionId        String          @db.ObjectId
   cashSession          CashSession     @relation(fields: [cashSessionId], references: [id])
   orderIds             String[]        @db.ObjectId
@@ -556,6 +563,8 @@ model Bill {
   discountApprovedById String?         @db.ObjectId
   serviceFeeAmount     Float           @default(0)
   serviceFeePercent    Float?
+  /// The delivered order's `Order.deliveryFee`, carried onto the bill total. Always 0 on comanda Bills.
+  deliveryFeeAmount    Float           @default(0)
   total                Float
   status               BillStatus      @default(OPEN)
   closedAt             DateTime?

@@ -32,6 +32,21 @@ export class BillController {
     return reply.status(result.statusCode).send(result);
   }
 
+  /** `GET /restaurants/:restaurantId/orders/:orderId/bill` */
+  async getOrCreateBillForOrder(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+    if (!user) return reply.status(401).send(unauthorized());
+
+    const { restaurantId, orderId } = request.params as { restaurantId: string; orderId: string };
+
+    if (restaurantId !== user.restaurantId) {
+      return reply.status(401).send(unauthorized("You don't have access to this restaurant"));
+    }
+
+    const result = await this.service.getOrCreateBillForOrder({ restaurantId, orderId, loggedUser: user });
+    return reply.status(result.statusCode).send(result);
+  }
+
   /** `PATCH /bills/:id/discount` */
   async updateDiscount(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as LoggedUser;
