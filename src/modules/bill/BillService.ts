@@ -13,8 +13,13 @@ interface LoggedUser {
 
 const CAN_OPERATE_BILL: Role[] = ["CASHIER", "MANAGER", "ADMIN"];
 const APPROVER_ROLES: Role[] = ["MANAGER", "ADMIN"];
-/** Orders aggregated into a table's Bill: everything except FINISHED/CANCELED (see spec). */
-const AGGREGATABLE_ORDER_STATUSES: OrderStatus[] = ["CREATED", "PREPARING", "COMING", "DELIVERED"];
+/**
+ * Orders aggregated into a Bill: everything except FINISHED/CANCELED (see spec). `IN_ROUTE`
+ * was added to `OrderStatus` after the original spec was written and this list wasn't updated —
+ * without it, a delivery order being driven to the customer couldn't be billed at all until it
+ * flipped to DELIVERED, even though it's not in a terminal state.
+ */
+const AGGREGATABLE_ORDER_STATUSES: OrderStatus[] = ["CREATED", "PREPARING", "COMING", "IN_ROUTE", "DELIVERED"];
 /** Discounts up to this percentage are free for the cashier to apply; above it requires PIN approval. */
 const FREE_DISCOUNT_THRESHOLD_PERCENT = 10;
 /** Every new Bill starts with the service fee already on — the cashier turns it off, not on. */
