@@ -203,12 +203,6 @@ código — não confie em como o Prisma exibe o valor de volta.
 
 Itens levantados na auditoria de 2026-06-21 e ainda não resolvidos:
 
-- **Preço de customizações não verificado**: `CreateOrderService` recalcula o
-  total a partir de `Product.price`, mas `customizationOptions.additionalPrice`
-  ainda vem do cliente sem vínculo a um `CustomizationOption` real no banco
-  (o schema atual não guarda esse id no `OrderItemCustomizationOption`).
-  Corrigir exigirá migração de schema: adicionar `customizationOptionId` ao
-  input e validar/recalcular o preço a partir do registro real.
 - **Sem validação de schema (zod/joi)**: toda validação é manual via `as`
   casts. Adotar zod nos controllers é o próximo passo natural para reduzir
   bugs de tipo em runtime.

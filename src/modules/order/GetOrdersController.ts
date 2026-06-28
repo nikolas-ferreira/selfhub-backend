@@ -11,13 +11,13 @@ type GetOrdersQuery = {
 const validOrigins: OrderOrigin[] = ["DELIVERY", "PICKUP", "LOCAL"]
 const objectIdRegex = /^[a-fA-F0-9]{24}$/
 
-/** `GET /orders` — lists orders for the caller's restaurant, restricted to ADMIN/MANAGER. */
+/** `GET /orders` — lists orders for the caller's restaurant, restricted to ADMIN/MANAGER/CASHIER (cashier gets read-only access to check order status). */
 export class GetOrdersController {
   /** Validates `productId`/`origin` query filters before delegating to {@link GetOrdersService}. */
   async handle(request: FastifyRequest, reply: FastifyReply) {
     const { user } = request as any
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MANAGER")) {
+    if (!user || !["ADMIN", "MANAGER", "CASHIER"].includes(user.role)) {
       return reply.status(403).send({
         statusCode: 403,
         response: null,

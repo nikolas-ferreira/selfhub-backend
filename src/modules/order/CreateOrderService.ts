@@ -5,6 +5,7 @@ import { isRestaurantOpenNow } from "../../shared/utils/businessHours";
 import { isValidCpf, onlyDigits } from "../../shared/utils/cpf";
 
 interface CustomizationOptionInput {
+  optionId: string;
   name: string;
   additionalPrice: number;
   quantity: number;
@@ -42,9 +43,9 @@ export interface CreateOrderRequest {
  *
  * Because this endpoint has no auth, nothing from the request is trusted for
  * pricing or tenancy: `restaurantId` and every `productId` are verified to
- * exist and belong together, and `totalValue` is always recomputed from the
- * catalog rather than accepted from the client (see RFC §"Order pricing trust
- * boundary" for the remaining caveat around customization option prices).
+ * exist and belong together, every customization `optionId` is verified to
+ * belong to that product, and `totalValue` (including customization prices)
+ * is always recomputed from the catalog rather than accepted from the client.
  */
 export class CreateOrderService {
   /**
@@ -64,6 +65,12 @@ export class CreateOrderService {
     for (const item of data.items) {
       if (!item.productId || !item.quantity || item.quantity <= 0) {
         throw new Error("Each item requires a valid productId and a positive quantity");
+      }
+
+      for (const opt of item.customizationOptions || []) {
+        if (!opt.optionId || !/^[0-9a-fA-F]{24}$/.test(opt.optionId)) {
+          throw new Error("Each customization option requires a valid optionId");
+        }
       }
     }
 
@@ -98,6 +105,7 @@ export class CreateOrderService {
         id: { in: data.items.map((item) => item.productId) },
         category: { restaurantId: data.restaurantId },
       },
+      include: { customizationGroups: { include: { options: true } } },
     });
 
     const productById = new Map(products.map((product) => [product.id, product]));
@@ -108,12 +116,30 @@ export class CreateOrderService {
       }
     }
 
+    // Customization option prices are never trusted from the client: each
+    // optionId is resolved against the product's own catalog so the price
+    // persisted is always the real CustomizationOption.price.
+    const optionById = new Map(
+      products.flatMap((product) => product.customizationGroups.flatMap((group) => group.options)).map((opt) => [opt.id, opt])
+    );
+
+    for (const item of data.items) {
+      const product = productById.get(item.productId)!;
+      const validOptionIds = new Set(product.customizationGroups.flatMap((group) => group.options.map((opt) => opt.id)));
+
+      for (const opt of item.customizationOptions || []) {
+        if (!validOptionIds.has(opt.optionId)) {
+          throw new Error(`Customization option ${opt.optionId} does not belong to product ${item.productId}`);
+        }
+      }
+    }
+
     // Prices are always recomputed server-side from the catalog; client-supplied
     // totalValue/prices are never trusted.
     const totalValue = data.items.reduce((sum, item) => {
       const product = productById.get(item.productId)!;
       const customizationsTotal = (item.customizationOptions || []).reduce(
-        (acc, opt) => acc + opt.additionalPrice * opt.quantity,
+        (acc, opt) => acc + optionById.get(opt.optionId)!.price * opt.quantity,
         0
       );
       return sum + (product.price + customizationsTotal) * item.quantity;
@@ -274,8 +300,9 @@ export class CreateOrderService {
             ratingStar: item.ratingStar,
             customizations: {
               create: (item.customizationOptions || []).map((opt) => ({
-                name: opt.name,
-                additionalPrice: opt.additionalPrice,
+                customizationOptionId: opt.optionId,
+                name: optionById.get(opt.optionId)!.name,
+                additionalPrice: optionById.get(opt.optionId)!.price,
                 quantity: opt.quantity,
               })),
             },

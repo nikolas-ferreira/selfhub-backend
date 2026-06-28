@@ -379,12 +379,13 @@ model OrderItem {
 }
 
 model OrderItemCustomizationOption {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  orderItemId     String    @db.ObjectId
-  name            String
-  additionalPrice Float
-  quantity        Int
-  orderItem       OrderItem @relation(fields: [orderItemId], references: [id])
+  id                     String    @id @default(auto()) @map("_id") @db.ObjectId
+  orderItemId            String    @db.ObjectId
+  customizationOptionId  String?   @db.ObjectId
+  name                   String
+  additionalPrice        Float
+  quantity               Int
+  orderItem              OrderItem @relation(fields: [orderItemId], references: [id])
 }
 
 enum TableStatus {
