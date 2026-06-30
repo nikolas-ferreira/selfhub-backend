@@ -18,15 +18,21 @@ export class OrderNotificationService {
   async notifyOrderCreated(order: Order): Promise<void> {
     try {
       const config = await this.getSendableConfig(order);
-      if (!config || !config.notifyOnCreated) return;
+      if (!config) return;
 
-      await sendTemplateMessage({
+      if (!config.notifyOnCreated) {
+        console.info(`[OrderNotificationService] Skipping order ${order.id} created: notifyOnCreated is off for restaurant ${order.restaurantId}`);
+        return;
+      }
+
+      const { messageId } = await sendTemplateMessage({
         phoneNumberId: config.phoneNumberId,
         accessToken: decryptToken(config.accessToken),
         to: formatPhoneForWhatsApp(order.customerPhone!),
         templateName: WHATSAPP_TEMPLATE_NAMES.ORDER_CREATED,
         bodyParams: [order.customerName || "Cliente", order.orderNumber],
       });
+      console.info(`[OrderNotificationService] Sent "order created" for order ${order.id} — messageId ${messageId}`);
     } catch (err) {
       console.error(`[OrderNotificationService] Failed to notify order ${order.id} created`, err);
     }
@@ -35,29 +41,51 @@ export class OrderNotificationService {
   async notifyStatusChanged(order: Order, status: OrderStatus): Promise<void> {
     try {
       const config = await this.getSendableConfig(order);
-      if (!config || !config.notifyOnStatuses.includes(status)) return;
+      if (!config) return;
 
-      await sendTemplateMessage({
+      if (!config.notifyOnStatuses.includes(status)) {
+        console.info(`[OrderNotificationService] Skipping order ${order.id} status ${status}: not in notifyOnStatuses for restaurant ${order.restaurantId}`);
+        return;
+      }
+
+      const { messageId } = await sendTemplateMessage({
         phoneNumberId: config.phoneNumberId,
         accessToken: decryptToken(config.accessToken),
         to: formatPhoneForWhatsApp(order.customerPhone!),
         templateName: WHATSAPP_TEMPLATE_NAMES.STATUS_CHANGED,
         bodyParams: [order.customerName || "Cliente", order.orderNumber, ORDER_STATUS_LABEL[status]],
       });
+      console.info(`[OrderNotificationService] Sent "status changed" (${status}) for order ${order.id} — messageId ${messageId}`);
     } catch (err) {
       console.error(`[OrderNotificationService] Failed to notify order ${order.id} status change`, err);
     }
   }
 
-  /** Returns `null` when there's nothing to send to (no phone, no consent, no/inactive config). */
+  /** Returns `null` (after logging why) when there's nothing to send to. */
   private async getSendableConfig(order: Order) {
-    if (!order.customerPhone || !order.customerAcceptsWhatsApp) return null;
+    if (!order.customerPhone) {
+      console.info(`[OrderNotificationService] Skipping order ${order.id}: no customerPhone on file`);
+      return null;
+    }
+
+    if (!order.customerAcceptsWhatsApp) {
+      console.info(`[OrderNotificationService] Skipping order ${order.id}: customer didn't opt in to WhatsApp`);
+      return null;
+    }
 
     const config = await prisma.restaurantWhatsAppConfig.findUnique({
       where: { restaurantId: order.restaurantId },
     });
 
-    if (!config || !config.isActive) return null;
+    if (!config) {
+      console.info(`[OrderNotificationService] Skipping order ${order.id}: restaurant ${order.restaurantId} has no WhatsApp config`);
+      return null;
+    }
+
+    if (!config.isActive) {
+      console.info(`[OrderNotificationService] Skipping order ${order.id}: WhatsApp config for restaurant ${order.restaurantId} is inactive`);
+      return null;
+    }
 
     return config;
   }
