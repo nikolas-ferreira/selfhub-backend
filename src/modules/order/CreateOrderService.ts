@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { AddressInput, CustomerInput, OrderOrigin } from "./orderTypes";
 import { isRestaurantOpenNow } from "../../shared/utils/businessHours";
 import { isValidCpf, onlyDigits } from "../../shared/utils/cpf";
+import { OrderNotificationService } from "../notification/OrderNotificationService";
 
 interface CustomizationOptionInput {
   optionId: string;
@@ -220,6 +221,7 @@ export class CreateOrderService {
     }
 
     const customerName = data.customer.name.trim();
+    const acceptsWhatsApp = data.customer.acceptsWhatsApp ?? true;
     const existingCustomer = await prisma.customer.findUnique({
       where: { restaurantId_cpf: { restaurantId: data.restaurantId, cpf: customerCpf } },
     });
@@ -230,6 +232,7 @@ export class CreateOrderService {
           data: {
             name: customerName,
             phone: customerPhone,
+            acceptsWhatsApp,
             ...(address ? { address } : {}),
           },
         })
@@ -239,6 +242,7 @@ export class CreateOrderService {
             cpf: customerCpf,
             name: customerName,
             phone: customerPhone,
+            acceptsWhatsApp,
             ...(address ? { address } : {}),
           },
         });
@@ -291,6 +295,7 @@ export class CreateOrderService {
         customerName,
         customerCpf,
         customerPhone,
+        customerAcceptsWhatsApp: acceptsWhatsApp,
         items: {
           create: data.items.map((item) => ({
             product: { connect: { id: item.productId } },
@@ -318,6 +323,10 @@ export class CreateOrderService {
     if (claimedDiscountId) {
       await prisma.customerDiscount.update({ where: { id: claimedDiscountId }, data: { usedOrderId: order.id } });
     }
+
+    // Fire-and-forget: OrderNotificationService swallows its own errors, so a WhatsApp/Meta
+    // outage never fails order creation. Not awaited, so it doesn't add latency to the response.
+    void new OrderNotificationService().notifyOrderCreated(order);
 
     return order;
   }

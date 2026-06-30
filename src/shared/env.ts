@@ -32,4 +32,12 @@ export function validateEnv() {
   if (!process.env.FOCUS_NFE_TOKEN) {
     console.warn("FOCUS_NFE_TOKEN is not set — POST /bills/:id/fiscal-document will mark the document as FAILED")
   }
+
+  if (!process.env.ENCRYPTION_KEY) {
+    console.warn("ENCRYPTION_KEY is not set — saving a restaurant's WhatsApp access token will fail at request time")
+  }
+
+  if (!process.env.WHATSAPP_VERIFY_TOKEN) {
+    console.warn("WHATSAPP_VERIFY_TOKEN is not set — GET /webhooks/whatsapp will reject Meta's subscription handshake")
+  }
 }

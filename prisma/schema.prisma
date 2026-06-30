@@ -38,6 +38,7 @@ model Restaurant {
   comandas      Comanda[]
   customers     Customer[]
   customerDiscounts CustomerDiscount[]
+  whatsappConfig RestaurantWhatsAppConfig?
 
   @@map("restaurants")
 }
@@ -90,6 +91,35 @@ type HomeSection {
   isActive     Boolean            @default(true)
   banners      HomeBannerSlide[]
   items        HomeCarouselItem[]
+}
+
+/**
+ * Per-restaurant WhatsApp Business Cloud API credentials, used by `OrderNotificationService` to
+ * message the customer when their order is created/changes status — always sent from the
+ * restaurant's own WhatsApp number, never a shared one (see docs/whatsapp-notifications-feature.md).
+ * Each restaurant brings its own Meta Business app/System User token (no Embedded Signup, no BSP
+ * middleman) — `accessToken` is encrypted at rest (see `src/shared/crypto.ts`) and never returned
+ * in plaintext by `RestaurantWhatsAppConfigController`.
+ */
+model RestaurantWhatsAppConfig {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  restaurantId     String        @unique @db.ObjectId
+  restaurant       Restaurant    @relation(fields: [restaurantId], references: [id])
+  phoneNumberId    String
+  wabaId           String
+  /// AES-256-GCM ciphertext (see `src/shared/crypto.ts#encryptToken`), not the raw Meta token.
+  accessToken      String
+  /// Meta App Secret, used to validate `x-hub-signature-256` on inbound webhooks. Optional —
+  /// sending messages doesn't need it; only set once webhook delivery-status handling is wired up.
+  appSecret        String?
+  /// Lets a restaurant pause notifications without losing/re-entering its credentials.
+  isActive         Boolean       @default(true)
+  notifyOnCreated  Boolean       @default(true)
+  /// Which post-creation status transitions also trigger a message. `FINISHED` is deliberately not
+  /// in the default — it fires from Caixa bill-closing, not a customer-relevant delivery milestone.
+  notifyOnStatuses OrderStatus[] @default([COMING, IN_ROUTE, DELIVERED, CANCELED])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }
 
 model Device {
@@ -277,6 +307,11 @@ model Order {
   /// The `CustomerDiscount` consumed by this order, if any. Plain scalar, no `@relation` — same
   /// loose-coupling convention as `billId`.
   customerDiscountId    String?       @db.ObjectId
+  /// Snapshot of `Customer.acceptsWhatsApp` at order time, same denormalization convention as
+  /// `customerName`/`customerPhone` — lets `OrderNotificationService` decide whether to send a
+  /// WhatsApp message without an extra `Customer` lookup, and without a later opt-out retroactively
+  /// suppressing notifications already in flight for this order.
+  customerAcceptsWhatsApp Boolean     @default(true)
 
   @@index([origin])
   @@index([restaurantId, tableNumber, billId])
@@ -299,6 +334,10 @@ model Customer {
   /// Last known delivery address, kept up to date on every DELIVERY order. Null if the customer
   /// has only ever placed LOCAL/PICKUP orders.
   address      Json?
+  /// Opt-in for WhatsApp order notifications, captured at the digital menu's customer info step
+  /// and remembered across future orders. Defaults to `true` (current customers, created before
+  /// this field existed, are treated as opted-in until they explicitly uncheck it on a future order).
+  acceptsWhatsApp Boolean @default(true)
   restaurantId String     @db.ObjectId
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   orders       Order[]

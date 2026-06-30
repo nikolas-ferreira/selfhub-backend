@@ -18,4 +18,6 @@ export interface CustomerInput {
   cpf: string;
   name: string;
   phone: string;
+  /** Opt-in for WhatsApp order notifications, captured at checkout. Defaults to `true` when omitted, for older clients built before this field existed. */
+  acceptsWhatsApp?: boolean;
 }

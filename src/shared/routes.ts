@@ -31,6 +31,8 @@ import { TrackOrderController } from "../modules/order/TrackOrderController"
 import { CustomerController } from "../modules/customer/CustomerController"
 import { CustomerDiscountController } from "../modules/customer/CustomerDiscountController"
 import { optionalVerifyToken } from "./utils/optionalVerifyToken"
+import { RestaurantWhatsAppConfigController } from "../modules/restaurant/RestaurantWhatsAppConfigController"
+import { WhatsAppWebhookController } from "../modules/notification/WhatsAppWebhookController"
 
 /**
  * Registers every HTTP route for the API on the given Fastify instance.
@@ -69,6 +71,8 @@ export async function routes(fastify: FastifyInstance) {
   const trackOrderController = new TrackOrderController()
   const customerController = new CustomerController()
   const customerDiscountController = new CustomerDiscountController()
+  const restaurantWhatsAppConfigController = new RestaurantWhatsAppConfigController()
+  const whatsAppWebhookController = new WhatsAppWebhookController()
 
   // Auth
   const authRateLimit = { max: 10, timeWindow: "1 minute" };
@@ -367,6 +371,31 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  // WhatsApp notifications - Protected (ADMIN only, enforced in RestaurantWhatsAppConfigService)
+  fastify.get(
+    "/restaurants/:restaurantId/whatsapp-config",
+    { preHandler: [verifyToken], schema: { tags: ["WhatsApp"], summary: "Get WhatsApp notification config" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return restaurantWhatsAppConfigController.get(request, reply)
+    }
+  )
+
+  fastify.put(
+    "/restaurants/:restaurantId/whatsapp-config",
+    { preHandler: [verifyToken], schema: { tags: ["WhatsApp"], summary: "Save WhatsApp notification config" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return restaurantWhatsAppConfigController.save(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/restaurants/:restaurantId/whatsapp-config/test",
+    { preHandler: [verifyToken], schema: { tags: ["WhatsApp"], summary: "Validate stored WhatsApp credentials" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return restaurantWhatsAppConfigController.test(request, reply)
+    }
+  )
+
   fastify.get(
     "/staff",
     { preHandler: [verifyToken], schema: { tags: ["Staff"], summary: "List team members" } },
@@ -565,6 +594,23 @@ export async function routes(fastify: FastifyInstance) {
     { schema: { tags: ["Payment"], summary: "Mercado Pago payment webhook" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return mercadoPagoWebhookController.handle(request, reply)
+    }
+  )
+
+  // WhatsApp webhook - Public (called only by Meta, not the front-end). Optional for v1 — see WhatsAppWebhookController.
+  fastify.get(
+    "/webhooks/whatsapp",
+    { schema: { tags: ["WhatsApp"], summary: "Meta webhook subscription handshake" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return whatsAppWebhookController.verify(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/webhooks/whatsapp",
+    { schema: { tags: ["WhatsApp"], summary: "WhatsApp message status/inbound webhook" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return whatsAppWebhookController.handle(request, reply)
     }
   )
 

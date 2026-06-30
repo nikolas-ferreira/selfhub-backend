@@ -1,5 +1,6 @@
 import prisma from "../../shared/prisma";
 import { OrderStatus } from './OrderStatus'
+import { OrderNotificationService } from '../notification/OrderNotificationService'
 
 
 interface EditOrderStatusParams {
@@ -37,6 +38,9 @@ export class EditOrderStatusService {
       where: { id: orderId },
       data: { status }
     })
+
+    // Fire-and-forget, same reasoning as CreateOrderService — see OrderNotificationService.
+    void new OrderNotificationService().notifyStatusChanged(updatedOrder, status)
 
     return updatedOrder
   }
