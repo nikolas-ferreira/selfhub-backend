@@ -95,4 +95,20 @@ export class BillController {
     const result = await this.service.closeBill({ billId: id, loggedUser: user });
     return reply.status(result.statusCode).send(result);
   }
+
+  /** `POST /bills/:id/cancel` — cancelamento de conta (MANAGER/ADMIN), motivo obrigatório. */
+  async cancelBill(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user as LoggedUser;
+    if (!user) return reply.status(401).send(unauthorized());
+
+    const { id } = request.params as { id: string };
+    const { reason } = request.body as { reason?: string };
+
+    if (!reason || !reason.trim()) {
+      return reply.status(400).send(badRequest("'reason' is required"));
+    }
+
+    const result = await this.service.cancelBill({ billId: id, reason, loggedUser: user });
+    return reply.status(result.statusCode).send(result);
+  }
 }

@@ -562,6 +562,10 @@ model CashSession {
   /// Who actually closed the register — usually `cashierId`, but kept separate to cover a MANAGER/ADMIN closing someone else's shift.
   closedById     String?           @db.ObjectId
   closedByName   String?
+  /// Justificativa da quebra de caixa (sobra/falta) informada no fechamento cego quando a
+  /// diferença passa da tolerância. Null quando a diferença ficou dentro da tolerância. Ver
+  /// caixa-backend-spec.md §"Fechamento cego".
+  closingNote    String?
   movements      CashMovement[]
   bills          Bill[]
 
@@ -655,6 +659,12 @@ model Bill {
   total                Float
   status               BillStatus      @default(OPEN)
   closedAt             DateTime?
+  /// Cancelamento de conta (estorno da venda) — só MANAGER/ADMIN, motivo obrigatório, trilha
+  /// preservada (a `Bill` nunca é apagada, só marcada `CANCELED`). Ver caixa-backend-spec.md §"Estorno e cancelamento".
+  canceledAt           DateTime?
+  canceledById         String?         @db.ObjectId
+  canceledByName       String?
+  cancelReason         String?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   payments             Payment[]
@@ -676,6 +686,9 @@ enum PaymentStatus {
   PENDING
   CONFIRMED
   FAILED
+  /// Estornado por MANAGER/ADMIN. A linha original nunca é apagada — deixa de contar como
+  /// pagamento confirmado (sai dos totais da sessão/quebra de caixa) e guarda quem/porquê/quando.
+  REFUNDED
 }
 
 model Payment {
@@ -685,6 +698,10 @@ model Payment {
   method        CashierPaymentMethod
   amount        Float
   status        PaymentStatus        @default(PENDING)
+  /// Chave de idempotência enviada pelo front (header `Idempotency-Key`, uma por tentativa de
+  /// registro) — evita que um duplo-clique/retry crie dois pagamentos. Null em pagamentos
+  /// antigos e no PIX confirmado pelo webhook. Ver caixa-backend-spec.md §"Idempotência".
+  idempotencyKey String?
   /// Mercado Pago payment id — also the idempotency key for the webhook (PIX only).
   pixTxId       String?
   /// Base64 PNG, same as Mercado Pago's `qr_code_base64` (PIX only).
@@ -692,6 +709,12 @@ model Payment {
   /// EMV copia-e-cola string, same as Mercado Pago's `qr_code` (PIX only).
   pixCopyPaste  String?
   pixPaidAt     DateTime?
+  /// Estorno de pagamento — preenchidos quando `status: REFUNDED`. Motivo obrigatório, autor
+  /// registrado. A linha original é preservada (nunca apagada), só marcada.
+  refundedAt    DateTime?
+  refundedById  String?              @db.ObjectId
+  refundedByName String?
+  refundReason  String?
   createdAt     DateTime             @default(now())
   createdById   String               @db.ObjectId
   /// Denormalized name of `createdById`, same convention as `CashSession.cashierName`.
@@ -700,6 +723,7 @@ model Payment {
   createdByName String?
 
   @@index([billId])
+  @@index([billId, idempotencyKey])
   @@index([pixTxId])
 }
 

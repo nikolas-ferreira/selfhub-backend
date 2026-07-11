@@ -41,12 +41,12 @@ export class CashSessionController {
     if (!user) return reply.status(401).send(unauthorized());
 
     const { id } = request.params as { id: string };
-    const { closingAmount } = request.body as { closingAmount?: number };
+    const { closingAmount, closingNote } = request.body as { closingAmount?: number; closingNote?: string };
     if (typeof closingAmount !== "number") {
       return reply.status(400).send(badRequest("'closingAmount' is required"));
     }
 
-    const result = await this.service.close({ id, closingAmount, loggedUser: user });
+    const result = await this.service.close({ id, closingAmount, closingNote, loggedUser: user });
     return reply.status(result.statusCode).send(result);
   }
 

@@ -50,6 +50,9 @@ export const formatBill = (
     total: number;
     status: string;
     closedAt: Date | null;
+    canceledAt?: Date | null;
+    canceledByName?: string | null;
+    cancelReason?: string | null;
   },
   payments: Parameters<typeof formatPayment>[0][]
 ) => ({
@@ -80,6 +83,9 @@ export const formatBill = (
   payments: payments.map(formatPayment),
   status: bill.status,
   closedAt: bill.closedAt,
+  canceledAt: bill.canceledAt ?? null,
+  canceledByName: bill.canceledByName ?? null,
+  cancelReason: bill.cancelReason ?? null,
 });
 
 /**
@@ -87,6 +93,19 @@ export const formatBill = (
  * discount/service-fee/close — see caixa-backend-spec.md §"Conta da mesa".
  */
 export class BillService {
+  /**
+   * True if the bill already has money committed to it: a CONFIRMED payment (cash/card/pix in) or
+   * a PENDING Pix (charge already out for the current total). Used to freeze discount/service-fee —
+   * both change the total, and moving the total after a payment silently over/under-charges.
+   * REFUNDED/FAILED payments don't count (they no longer hold any money).
+   */
+  private async hasCommittedPayment(billId: string): Promise<boolean> {
+    const committed = await prisma.payment.findFirst({
+      where: { billId, status: { in: ["CONFIRMED", "PENDING"] } },
+    });
+    return committed != null;
+  }
+
   /**
    * `GET /restaurants/:restaurantId/comandas/:comandaNumber/bill` — get-or-create.
    * Re-aggregates on every call so newly placed orders for the same comanda
@@ -363,6 +382,12 @@ export class BillService {
       return badRequest(`Cannot edit the discount on a ${bill.status} bill`);
     }
 
+    // Once any money has been taken (or a Pix charge is out), the total must not move under it —
+    // otherwise a discount applied after payment silently over/under-charges with no refund trail.
+    if (await this.hasCommittedPayment(billId)) {
+      return badRequest("Cannot change the discount after a payment has been registered");
+    }
+
     if (discountPercent == null && discountAmount == null) {
       return badRequest("Provide 'discountPercent' or 'discountAmount'");
     }
@@ -441,6 +466,10 @@ export class BillService {
       return badRequest(`Cannot edit the service fee on a ${bill.status} bill`);
     }
 
+    if (await this.hasCommittedPayment(billId)) {
+      return badRequest("Cannot change the service fee after a payment has been registered");
+    }
+
     if (serviceFeePercent !== null && (typeof serviceFeePercent !== "number" || serviceFeePercent < 0)) {
       return badRequest("'serviceFeePercent' must be a non-negative number or null");
     }
@@ -503,5 +532,84 @@ export class BillService {
     });
 
     return { statusCode: 200, response: formatBill(updated, payments), message: "Bill closed successfully" };
+  }
+
+  /**
+   * `POST /bills/:id/cancel` — cancela (estorna) uma conta. Alçada de MANAGER/ADMIN, motivo
+   * obrigatório. É o antídoto de mercado para a fraude nº 1 (cancelamento pós-pagamento): a conta
+   * nunca é apagada — vira `CANCELED` com autor/motivo/hora; todo pagamento CONFIRMED vira
+   * `REFUNDED` (some dos totais da sessão) e todo Pix PENDING vira `FAILED`. Os pedidos voltam a
+   * ficar "cobráveis" (billId limpo) e, se a conta já estava paga/fechada, a comanda reabre e os
+   * pedidos saem de FINISHED — para o salão não ficar com a mesa presa após um estorno.
+   *
+   * Nota: cancelamento fiscal (NFC-e já emitida) é tratado à parte e continua pendente — ver A2.
+   */
+  async cancelBill({ billId, reason, loggedUser }: { billId: string; reason: string; loggedUser: LoggedUser }) {
+    if (!APPROVER_ROLES.includes(loggedUser.role)) {
+      return forbidden("Only MANAGER or ADMIN can cancel a bill");
+    }
+
+    if (!reason?.trim()) {
+      return badRequest("'reason' is required to cancel a bill");
+    }
+
+    const bill = await prisma.bill.findFirst({ where: { id: billId, restaurantId: loggedUser.restaurantId } });
+    if (!bill) {
+      return notFound("Bill not found");
+    }
+
+    if (bill.status === "CANCELED") {
+      return badRequest("Bill is already canceled");
+    }
+
+    const wasPaid = bill.status === "PAID";
+    const actor = await prisma.profile.findUnique({ where: { id: loggedUser.id } });
+    const trimmedReason = reason.trim();
+
+    const canceled = await prisma.$transaction(async (tx) => {
+      // Confirmed payments are reversed (money out of the session totals); a PENDING Pix charge is
+      // abandoned. Original rows are preserved, only marked.
+      await tx.payment.updateMany({
+        where: { billId, status: "CONFIRMED" },
+        data: {
+          status: "REFUNDED",
+          refundedAt: new Date(),
+          refundedById: loggedUser.id,
+          refundedByName: actor?.name ?? "",
+          refundReason: `Conta cancelada: ${trimmedReason}`,
+        },
+      });
+      await tx.payment.updateMany({ where: { billId, status: "PENDING" }, data: { status: "FAILED" } });
+
+      // Orders return to unbilled so they can be re-aggregated into a fresh bill. If the bill had
+      // already been closed (PAID), its orders were FINISHED — pull them back to DELIVERED (a safe
+      // non-terminal state) so the comanda/table flow keeps working.
+      if (bill.orderIds.length) {
+        await tx.order.updateMany({
+          where: { id: { in: bill.orderIds } },
+          data: { billId: null, ...(wasPaid ? { status: "DELIVERED" as OrderStatus, finishedAt: null } : {}) },
+        });
+      }
+
+      // A closed bill closed its comanda — reopen it so the table isn't stuck occupied with no way
+      // to re-bill. An open bill's comanda is already OPEN.
+      if (wasPaid && bill.comandaId) {
+        await tx.comanda.update({ where: { id: bill.comandaId }, data: { status: "OPEN", closedAt: null } });
+      }
+
+      return tx.bill.update({
+        where: { id: billId },
+        data: {
+          status: "CANCELED",
+          canceledAt: new Date(),
+          canceledById: loggedUser.id,
+          canceledByName: actor?.name ?? "",
+          cancelReason: trimmedReason,
+        },
+      });
+    });
+
+    const payments = await prisma.payment.findMany({ where: { billId }, orderBy: { createdAt: "asc" } });
+    return { statusCode: 200, response: formatBill(canceled, payments), message: "Bill canceled successfully" };
   }
 }

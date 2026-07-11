@@ -15,6 +15,13 @@ const CAN_VIEW_HISTORY: Role[] = ["MANAGER", "ADMIN"];
 const MOVEMENT_TYPES = ["WITHDRAWAL", "SUPPLY"] as const;
 type MovementType = (typeof MOVEMENT_TYPES)[number];
 
+/**
+ * Fechamento cego: até esta diferença (em R$, para mais ou para menos) a quebra é ruído de troco e
+ * o caixa fecha direto; acima disso o sistema revela a diferença e exige uma justificativa antes de
+ * finalizar. Decisão de produto (padrão de mercado brasileiro para PDV pequeno/médio).
+ */
+const CLOSE_DIFFERENCE_TOLERANCE = 2;
+
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const formatMovement = (movement: {
@@ -85,6 +92,7 @@ export class CashSessionService {
     status: string;
     closedById: string | null;
     closedByName: string | null;
+    closingNote?: string | null;
   }) {
     const aggregates = await this.computeAggregates(session.id);
 
@@ -102,6 +110,7 @@ export class CashSessionService {
       status: session.status,
       closedById: session.closedById,
       closedByName: session.closedByName,
+      closingNote: session.closingNote ?? null,
       ...aggregates,
     };
   }
@@ -151,8 +160,30 @@ export class CashSessionService {
     return { statusCode: 200, response: await this.formatSession(session) };
   }
 
-  /** `POST /cash-sessions/:id/close` — computes `expectedAmount`/`difference` (CASH only) and marks `CLOSED`. */
-  async close({ id, closingAmount, loggedUser }: { id: string; closingAmount: number; loggedUser: LoggedUser }) {
+  /**
+   * `POST /cash-sessions/:id/close` — **fechamento cego**. O caixa declara o valor contado sem
+   * ver o esperado. O backend calcula a diferença (só CASH entra: cartão/PIX não passam pela
+   * gaveta) e:
+   *
+   * - dentro da tolerância → finaliza e revela a diferença na resposta;
+   * - acima da tolerância e **sem** `closingNote` → **não finaliza**: devolve `requiresJustification`
+   *   com a diferença já revelada, para o front exigir a justificativa e reenviar;
+   * - acima da tolerância e **com** `closingNote` → finaliza gravando a justificativa.
+   *
+   * A diferença nunca é exposta antes do valor contado (é sempre resultado, nunca alvo) — ver
+   * caixa-backend-spec.md §"Fechamento cego".
+   */
+  async close({
+    id,
+    closingAmount,
+    closingNote,
+    loggedUser,
+  }: {
+    id: string;
+    closingAmount: number;
+    closingNote?: string;
+    loggedUser: LoggedUser;
+  }) {
     if (typeof closingAmount !== "number" || !Number.isFinite(closingAmount) || closingAmount < 0) {
       return badRequest("'closingAmount' must be a non-negative number");
     }
@@ -178,23 +209,54 @@ export class CashSessionService {
       session.openingAmount + aggregates.totalByMethod.CASH - aggregates.totalWithdrawals + aggregates.totalSupplies
     );
     const difference = round2(closingAmount - expectedAmount);
+    const trimmedNote = closingNote?.trim() || null;
+    const requiresJustification = Math.abs(difference) > CLOSE_DIFFERENCE_TOLERANCE;
+
+    // Break over tolerance without a justification: reveal the difference but hold off finalizing,
+    // so the front can collect the reason and resubmit. The session stays OPEN.
+    if (requiresJustification && !trimmedNote) {
+      return {
+        statusCode: 200,
+        response: {
+          requiresJustification: true,
+          difference,
+          expectedAmount,
+          closingAmount: round2(closingAmount),
+          tolerance: CLOSE_DIFFERENCE_TOLERANCE,
+          session: null,
+        },
+        message: "Difference over tolerance — a justification is required to close",
+      };
+    }
 
     const closer = await prisma.profile.findUnique({ where: { id: loggedUser.id } });
 
     const updated = await prisma.cashSession.update({
       where: { id },
       data: {
-        closingAmount,
+        closingAmount: round2(closingAmount),
         expectedAmount,
         difference,
         status: "CLOSED",
         closedAt: new Date(),
         closedById: loggedUser.id,
         closedByName: closer?.name ?? "",
+        closingNote: trimmedNote,
       },
     });
 
-    return { statusCode: 200, response: await this.formatSession(updated), message: "Cash session closed successfully" };
+    return {
+      statusCode: 200,
+      response: {
+        requiresJustification: false,
+        difference,
+        expectedAmount,
+        closingAmount: round2(closingAmount),
+        tolerance: CLOSE_DIFFERENCE_TOLERANCE,
+        session: await this.formatSession(updated),
+      },
+      message: "Cash session closed successfully",
+    };
   }
 
   /** `POST /cash-sessions/:id/movements` — registers a sangria (`WITHDRAWAL`) or suprimento (`SUPPLY`). */
@@ -318,8 +380,10 @@ export class CashSessionService {
 
     const [movements, bills] = await Promise.all([
       prisma.cashMovement.findMany({ where: { cashSessionId: id }, orderBy: { createdAt: "asc" } }),
+      // PAID e CANCELED entram: a timeline precisa mostrar tanto os pagamentos quanto os
+      // estornos/cancelamentos. Os totais da sessão (computeAggregates) seguem só com PAID.
       prisma.bill.findMany({
-        where: { cashSessionId: id, status: "PAID" },
+        where: { cashSessionId: id, status: { in: ["PAID", "CANCELED"] } },
         include: { payments: { orderBy: { createdAt: "asc" } } },
         orderBy: { closedAt: "asc" },
       }),

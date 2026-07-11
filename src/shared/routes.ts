@@ -563,6 +563,14 @@ export async function routes(fastify: FastifyInstance) {
     }
   )
 
+  fastify.post(
+    "/bills/:id/cancel",
+    { preHandler: [verifyToken], schema: { tags: ["Bill"], summary: "Cancel a bill (MANAGER/ADMIN, reason required)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return billController.cancelBill(request, reply)
+    }
+  )
+
   // Payments (Caixa) - Protected
   fastify.post(
     "/bills/:id/payments",
@@ -585,6 +593,14 @@ export async function routes(fastify: FastifyInstance) {
     { preHandler: [verifyToken], schema: { tags: ["Payment"], summary: "Get a payment's current status" } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       return paymentController.getPayment(request, reply)
+    }
+  )
+
+  fastify.post(
+    "/payments/:id/refund",
+    { preHandler: [verifyToken], schema: { tags: ["Payment"], summary: "Refund a payment (MANAGER/ADMIN, reason required)" } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return paymentController.refundPayment(request, reply)
     }
   )
 
